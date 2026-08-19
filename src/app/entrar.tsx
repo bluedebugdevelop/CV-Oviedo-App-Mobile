@@ -21,7 +21,6 @@ import { useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -110,7 +109,18 @@ export default function Entrar() {
       <StatusBar style="light" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        /* 'padding' también en Android, y no `undefined`.
+
+           Se puso `undefined` dando por hecho que Android ya aparta la vista
+           él solo con `adjustResize`. Con el modo edge-to-edge del SDK 57 eso
+           dejó de ser verdad: la ventana NO encoge al abrirse el teclado (se
+           comprueba con `adb shell dumpsys window displays`, donde `app=` no
+           cambia), así que el teclado se pinta encima y el ScrollView ni se
+           entera de que tiene menos sitio.
+
+           Como la ventana no encoge, aquí no hay doble compensación: el
+           relleno que mete este componente es el único que se aplica. */
+        behavior="padding"
       >
         <ScrollView
           contentContainerStyle={[

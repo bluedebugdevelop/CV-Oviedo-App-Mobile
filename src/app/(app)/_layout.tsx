@@ -13,7 +13,8 @@
 
 import { Ionicons } from '@expo/vector-icons'
 import { Tabs } from 'expo-router'
-import { Platform, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ProveedorAvisos, useAvisos } from '../../contexto/avisos'
 import { color } from '../../tema'
@@ -30,6 +31,7 @@ function Globo({ n }: { n: number }) {
 
 function Barra() {
   const { noLeidos } = useAvisos()
+  const bordes = useSafeAreaInsets()
 
   return (
     <Tabs
@@ -40,8 +42,19 @@ function Barra() {
         tabBarStyle: {
           backgroundColor: color.blanco,
           borderTopColor: color.linea,
-          // Android no reserva sitio para la barra de gestos en la tab bar.
-          height: Platform.OS === 'android' ? 64 : undefined,
+          /* La altura se calcula, no se fija.
+
+             Antes había un `height: 64` a pelo en Android, y ese era el bug:
+             la barra de gestos del móvil se pintaba ENCIMA de las pestañas, así
+             que la fila de iconos quedaba medio tapada y «Más» era casi
+             impulsable. Con el modo edge-to-edge del SDK 57 el sistema dibuja
+             sobre la app, y hay que reservarle el hueco a mano.
+
+             Se ponen las dos cosas —alto y relleno— porque al declarar
+             `tabBarStyle` se pisa lo que calcula React Navigation: o se controla
+             todo, o se deja todo. */
+          height: 58 + bordes.bottom,
+          paddingBottom: bordes.bottom,
           paddingTop: 6,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },

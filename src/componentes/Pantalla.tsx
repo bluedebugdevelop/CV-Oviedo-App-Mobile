@@ -18,7 +18,6 @@ import { StatusBar } from 'expo-status-bar'
 import type { ReactNode } from 'react'
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -61,7 +60,7 @@ export function Pantalla({
   const bordes = useSafeAreaInsets()
 
   const cabecera = (
-    <View style={[e.cabecera, { paddingTop: bordes.top + espacio.sm }]}>
+    <View style={[e.cabecera, { paddingTop: bordes.top + espacio.md }]}>
       <View style={e.cabeceraFila}>
         {atras ? (
           <Pressable
@@ -97,7 +96,20 @@ export function Pantalla({
     </View>
   )
 
-  const relleno = { padding: sinMargen ? 0 : espacio.lg, paddingBottom: espacio.xxl }
+  /* El hueco de abajo tiene que dejar sitio a la barra de gestos.
+
+     Sin esto, en cualquier pantalla que no sea una pestaña —administración,
+     horarios, una noticia— el último botón queda debajo de la barra del
+     sistema y no se puede pulsar.
+
+     En las pestañas el inset ya lo consume la barra de abajo, así que aquí
+     sobra: son unos 24 px de scroll de más al final, que no molestan. Se
+     prefiere eso a leer el contexto interno de expo-router para distinguir
+     los dos casos. */
+  const relleno = {
+    padding: sinMargen ? 0 : espacio.lg,
+    paddingBottom: espacio.xxl + bordes.bottom,
+  }
 
   return (
     <View style={e.raiz}>
@@ -105,10 +117,18 @@ export function Pantalla({
       {cabecera}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        // En iOS el teclado tapa el campo si no se aparta la vista; en Android
-        // ya lo hace el sistema y hacerlo dos veces da un salto.
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={bordes.top + 60}
+        /* 'padding' también en Android, y no `undefined`.
+
+           Se puso `undefined` dando por hecho que Android ya aparta la vista
+           él solo con `adjustResize`. Con el modo edge-to-edge del SDK 57 eso
+           dejó de ser verdad: la ventana NO encoge al abrirse el teclado (se
+           comprueba con `adb shell dumpsys window displays`, donde `app=` no
+           cambia), así que el teclado se pinta encima y el ScrollView ni se
+           entera de que tiene menos sitio.
+
+           Como la ventana no encoge, aquí no hay doble compensación: el
+           relleno que mete este componente es el único que se aplica. */
+        behavior="padding"
       >
         {scroll ? (
           <ScrollView

@@ -16,7 +16,6 @@ import { useEffect, useRef, useState } from 'react'
 import {
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -110,8 +109,9 @@ export default function Chat() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? bordes.top + 108 : 0}
+        // Mismo motivo que en Pantalla.tsx: con edge-to-edge la ventana no
+        // encoge, así que el relleno lo tiene que poner este componente.
+        behavior="padding"
       >
         <FlatList
           data={mensajes}
