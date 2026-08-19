@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "//": "escucharUsuariosDeEquipo: los de un equipo, por orden alfabético. Firestore no crea solo los índices que combinan un array-contains con un orderBy de otro campo; sin este, la plantilla y el chat fallan con un error de 'the query requires an index'.",
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "equipos", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "nombre", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -41,3 +41,20 @@ example
 # generated native folders
 /ios
 /android
+
+# --- CV Oviedo ---
+# Claves de Firebase de cada entorno. `.env.example` sí va al repositorio.
+.env.local
+.env.*.local
+
+# Credenciales de publicación: la cuenta de servicio de Google Play y los
+# certificados de Apple NO se suben nunca.
+secretos/
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# Salida de las compilaciones locales de EAS
+/build

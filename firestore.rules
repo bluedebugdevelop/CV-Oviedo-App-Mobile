@@ -1,0 +1,213 @@
+// ==========================================================================
+// Reglas de seguridad de Firestore.
+//
+// Esto NO es una comprobación más: es la única que cuenta. La app esconde los
+// botones que no tocan, pero un móvil se puede trastear y el SDK de Firebase
+// se puede llamar desde cualquier sitio con las claves del proyecto —que van
+// dentro de la app y no son secretas—. Todo lo que no impida este fichero, se
+// puede hacer.
+//
+// LA IDEA
+// Tener cuenta en Firebase Auth no es ser del club. Lo que da acceso es tener
+// un documento en `usuarios/` con `activo: true`, y esos documentos solo los
+// crea un administrador. Por eso no hace falta apagar el registro: alguien
+// puede crearse una cuenta llamando al SDK por su cuenta, pero se queda sin
+// poder leer ni escribir absolutamente nada.
+//
+// Los tres roles:
+//   · jugador     — ve lo de sus equipos, escribe en su chat, contesta avisos
+//   · entrenador  — además, manda avisos y pone el horario de SUS equipos
+//   · admin       — todo el club: equipos, altas y bajas
+//
+// COSTE
+// Cada `get()` de estas reglas es una lectura facturable. Se usan pocas y
+// siempre sobre documentos que la app ya está leyendo de todas formas
+// (el perfil propio, el equipo), así que en la práctica salen de la caché de
+// la propia evaluación.
+//
+// Desplegar:  firebase deploy --only firestore:rules
+// ==========================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- quién eres ---------------------------------------------------
+
+    function miDoc() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function tengoFicha() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    // La puerta de todo: ficha en el club Y sin dar de baja. Una baja no borra
+    // la cuenta, le pone `activo: false`, y aquí es donde eso surte efecto.
+    function soyDelClub() {
+      return tengoFicha() && miDoc().data.activo == true;
+    }
+
+    function soyAdmin() {
+      return soyDelClub() && miDoc().data.rol == 'admin';
+    }
+
+    function misEquipos() {
+      return miDoc().data.equipos;
+    }
+
+    // --- qué equipo es --------------------------------------------------
+
+    function elEquipo(id) {
+      return get(/databases/$(database)/documents/equipos/$(id)).data;
+    }
+
+    function estoyEn(id) {
+      return soyDelClub()
+        && (request.auth.uid in elEquipo(id).jugadores
+            || request.auth.uid in elEquipo(id).entrenadores);
+    }
+
+    // Quien puede mandar avisos y tocar el horario: su entrenador, o un admin.
+    function mandoEn(id) {
+      return soyAdmin()
+        || (soyDelClub() && request.auth.uid in elEquipo(id).entrenadores);
+    }
+
+    /** Los campos que cambia una escritura. */
+    function tocaSolo(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    // ==================================================================
+    // usuarios
+    // ==================================================================
+    match /usuarios/{uid} {
+
+      // Tu ficha, la de tus compañeros de equipo, y todas si eres admin.
+      //
+      // `hasAny` sobre las dos listas de equipos es lo que deja a un jugador
+      // ver la plantilla de su equipo sin abrirle el censo del club. También
+      // vale para las consultas: Firestore evalúa esto documento a documento,
+      // así que una búsqueda de más de la cuenta devuelve error, no datos.
+      allow read: if soyDelClub()
+        && (uid == request.auth.uid
+            || soyAdmin()
+            || misEquipos().hasAny(resource.data.equipos));
+
+      // Las cuentas las crea un admin. Aquí es donde muere el registro
+      // abierto: nadie puede fabricarse su propia ficha, porque para crear una
+      // hay que tener ya una con rol de admin.
+      allow create: if soyAdmin()
+        && request.resource.data.rol in ['admin', 'entrenador', 'jugador']
+        && request.resource.data.activo is bool
+        && request.resource.data.equipos is list;
+
+      allow update: if (
+          soyAdmin()
+          // Un admin no puede quitarse a sí mismo el rol por descuido y dejar
+          // el club sin nadie que administre. Que se lo quite otro.
+          && !(uid == request.auth.uid
+               && request.resource.data.rol != resource.data.rol)
+        ) || (
+          // Cada cual apunta el aparato donde tiene la app instalada. Solo eso:
+          // sin este `hasOnly`, un jugador podría ascenderse a admin de un
+          // update.
+          uid == request.auth.uid
+          && soyDelClub()
+          && tocaSolo(['tokensPush'])
+        );
+
+      // Nunca. Una persona se desactiva (`activo: false`), no se borra: si se
+      // borrara, sus mensajes del chat se quedarían firmados por un fantasma y
+      // el histórico del equipo dejaría de tener sentido.
+      allow delete: if false;
+    }
+
+    // ==================================================================
+    // equipos
+    // ==================================================================
+    match /equipos/{equipoId} {
+
+      allow read: if soyDelClub()
+        && (soyAdmin()
+            || request.auth.uid in resource.data.jugadores
+            || request.auth.uid in resource.data.entrenadores);
+
+      allow create: if soyAdmin()
+        && request.resource.data.jugadores is list
+        && request.resource.data.entrenadores is list;
+
+      allow update: if soyAdmin();
+
+      // Archivar, no borrar: un equipo borrado se lleva por delante su chat,
+      // sus avisos y su horario, o sea la temporada entera.
+      allow delete: if false;
+
+      // ----------------------------------------------------------------
+      // chat del equipo
+      // ----------------------------------------------------------------
+      match /mensajes/{mensajeId} {
+        allow read: if estoyEn(equipoId) || soyAdmin();
+
+        // Firmado con tu propio uid: nadie escribe en nombre de otro.
+        allow create: if estoyEn(equipoId)
+          && request.resource.data.autor == request.auth.uid
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() <= 1000;
+
+        // Un mensaje no se edita: en un chat de equipo, poder reescribir lo
+        // que ya leyó otro es peor que dejarlo mal escrito.
+        allow update: if false;
+        allow delete: if mandoEn(equipoId);
+      }
+
+      // ----------------------------------------------------------------
+      // avisos del entrenador
+      // ----------------------------------------------------------------
+      match /avisos/{avisoId} {
+        allow read: if estoyEn(equipoId) || soyAdmin();
+
+        allow create: if mandoEn(equipoId)
+          && request.resource.data.autor == request.auth.uid
+          && request.resource.data.titulo is string
+          && request.resource.data.titulo.size() > 0;
+
+        allow update: if mandoEn(equipoId)
+          || (
+            // Un jugador solo puede decir que lo ha leído y si va o no va.
+            // No puede cambiar el texto del aviso ni quién lo firma.
+            estoyEn(equipoId)
+            && tocaSolo(['leidoPor', 'confirmados', 'rechazados'])
+          );
+
+        allow delete: if mandoEn(equipoId);
+      }
+
+      // ----------------------------------------------------------------
+      // horario de entrenamientos
+      // ----------------------------------------------------------------
+      match /entrenamientos/{entrenamientoId} {
+        allow read: if estoyEn(equipoId) || soyAdmin();
+        allow write: if mandoEn(equipoId);
+      }
+
+      // ----------------------------------------------------------------
+      // citas sueltas: amistosos, torneos, convocatorias
+      // ----------------------------------------------------------------
+      match /eventos/{eventoId} {
+        allow read: if estoyEn(equipoId) || soyAdmin();
+        allow write: if mandoEn(equipoId);
+      }
+    }
+
+    // Todo lo que no esté escrito arriba, cerrado. Sin esto, una colección
+    // nueva creada por descuido nacería abierta a internet.
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}
