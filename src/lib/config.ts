@@ -32,11 +32,13 @@ export const firebaseConfig = {
 }
 
 /**
- * ¿Está Firebase puesto? Sin esto la app arranca igual pero no deja entrar, y
- * conviene decir por qué en vez de soltar un error del SDK que no entiende
- * nadie.
+ * ¿Están puestas las claves?
+ *
+ * Solo mira que no estén vacías: que sean las BUENAS no se sabe hasta que el
+ * SDK las usa. De eso se encarga `firebaseListo` en firebase/app.ts, que es el
+ * que hay que consultar antes de tocar nada de Firebase.
  */
-export const firebaseListo = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId)
+export const hayConfigFirebase = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId)
 
 /** Convierte `/subidas/foto.jpg` en una URL que el móvil pueda cargar. */
 export function urlWeb(ruta?: string | null): string | null {

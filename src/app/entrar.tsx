@@ -34,7 +34,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Banda, Boton } from '../componentes/ui'
 import { useSesion } from '../contexto/sesion'
-import { auth, firebaseListo } from '../lib/firebase/app'
+import { auth, errorFirebase, firebaseListo } from '../lib/firebase/app'
 import { color, espacio, radio } from '../tema'
 
 /** Los códigos de Firebase, en algo que se pueda leer. */
@@ -132,8 +132,7 @@ export default function Entrar() {
           <View style={e.caja}>
             {!firebaseListo ? (
               <Banda tono="error">
-                Falta la configuración de Firebase. Copia `.env.example` a `.env.local` y rellena
-                las claves del proyecto.
+                {errorFirebase ?? 'Falta la configuración de Firebase.'}
               </Banda>
             ) : null}
 
