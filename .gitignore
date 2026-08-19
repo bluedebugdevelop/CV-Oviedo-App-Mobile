@@ -58,3 +58,8 @@ secretos/
 
 # Salida de las compilaciones locales de EAS
 /build
+
+# Registros que deja el emulador de Firebase al correr las pruebas de reglas
+firestore-debug.log
+ui-debug.log
+firebase-debug.log
