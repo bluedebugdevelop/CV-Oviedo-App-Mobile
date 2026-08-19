@@ -36,6 +36,21 @@ const COL = 'usuarios'
 
 const docUsuario = (uid: string) => doc(db, COL, uid)
 
+/**
+ * Una lista de cadenas, sin huecos.
+ *
+ * La consola de Firebase OBLIGA a meter un elemento al crear un campo de tipo
+ * array, así que la primera ficha de admin —la que hay que crear a mano, porque
+ * las reglas no dejan crearla desde la app— acaba con `equipos: [""]`. Ese id
+ * vacío llega a `doc(db, 'equipos', '')`, que lanza, y la app se queda tiesa
+ * nada más entrar.
+ *
+ * Se limpia aquí, en la frontera por la que entran los datos de Firestore, en
+ * vez de en cada sitio que los use.
+ */
+const listaLimpia = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : []
+
 /** Rellena lo que falte: los documentos viejos pueden no tener campos nuevos. */
 function aUsuario(uid: string, datos: any): Usuario {
   return {
@@ -43,12 +58,12 @@ function aUsuario(uid: string, datos: any): Usuario {
     nombre: datos?.nombre ?? '',
     email: datos?.email ?? '',
     rol: (datos?.rol ?? 'jugador') as Rol,
-    equipos: Array.isArray(datos?.equipos) ? datos.equipos : [],
+    equipos: listaLimpia(datos?.equipos),
     dorsal: datos?.dorsal ?? '',
     posicion: datos?.posicion ?? '',
     telefono: datos?.telefono ?? '',
     activo: datos?.activo !== false,
-    tokensPush: Array.isArray(datos?.tokensPush) ? datos.tokensPush : [],
+    tokensPush: listaLimpia(datos?.tokensPush),
     creadoEn: datos?.creadoEn,
     creadoPor: datos?.creadoPor,
   }
@@ -59,12 +74,28 @@ export async function leerUsuario(uid: string): Promise<Usuario | null> {
   return inst.exists() ? aUsuario(inst.id, inst.data()) : null
 }
 
-/** El perfil propio, en vivo: si el admin cambia el rol, la app se entera sola. */
-export function escucharUsuario(uid: string, alCambiar: (u: Usuario | null) => void) {
+/**
+ * El perfil propio, en vivo: si el admin cambia el rol, la app se entera sola.
+ *
+ * El segundo argumento del callback separa dos cosas que se parecen mucho y
+ * que se arreglan de formas muy distintas:
+ *
+ *   · null sin fallo → la cuenta existe en Auth pero no tiene ficha; es
+ *     alguien a quien no ha dado de alta ningún administrador.
+ *   · con fallo → Firestore rechazó la lectura. Casi siempre significa que
+ *     las reglas no están desplegadas todavía.
+ *
+ * Sin distinguirlas, un proyecto recién montado le dice «no estás dado de
+ * alta» a alguien que sí lo está, y ahí se pierde la tarde.
+ */
+export function escucharUsuario(
+  uid: string,
+  alCambiar: (u: Usuario | null, fallo?: string) => void,
+) {
   return onSnapshot(
     docUsuario(uid),
     (inst) => alCambiar(inst.exists() ? aUsuario(inst.id, inst.data()) : null),
-    () => alCambiar(null),
+    (e: any) => alCambiar(null, e?.code ?? e?.message ?? 'error desconocido'),
   )
 }
 

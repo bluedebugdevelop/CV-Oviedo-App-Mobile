@@ -31,6 +31,10 @@ const COL = 'equipos'
 
 export const docEquipo = (id: string) => doc(db, COL, id)
 
+/** Ver `listaLimpia` en usuarios.ts: un uid vacío en una plantilla rompe igual. */
+const listaLimpia = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : []
+
 function aEquipo(id: string, datos: any): Equipo {
   return {
     id,
@@ -39,8 +43,8 @@ function aEquipo(id: string, datos: any): Equipo {
     genero: (datos?.genero ?? 'Mixto') as Genero,
     temporada: datos?.temporada ?? '',
     claveCompeticion: datos?.claveCompeticion ?? null,
-    entrenadores: Array.isArray(datos?.entrenadores) ? datos.entrenadores : [],
-    jugadores: Array.isArray(datos?.jugadores) ? datos.jugadores : [],
+    entrenadores: listaLimpia(datos?.entrenadores),
+    jugadores: listaLimpia(datos?.jugadores),
     archivado: datos?.archivado === true,
     creadoEn: datos?.creadoEn,
     creadoPor: datos?.creadoPor,
@@ -68,7 +72,11 @@ export function escucharEquipo(id: string, alCambiar: (e: Equipo | null) => void
  * regla de lectura puede ser «solo si estás dentro» sin tener que abrir la
  * colección entera a consultas.
  */
-export function escucharEquiposPorId(ids: string[], alCambiar: (es: Equipo[]) => void) {
+export function escucharEquiposPorId(brutos: string[], alCambiar: (es: Equipo[]) => void) {
+  // Cinturón además de los tirantes: aunque `aUsuario` ya limpia la lista, un
+  // id vacío aquí lanzaría al construir la referencia y tumbaría la pantalla.
+  const ids = brutos.filter((id) => typeof id === 'string' && id.trim() !== '')
+
   if (ids.length === 0) {
     alCambiar([])
     return () => {}

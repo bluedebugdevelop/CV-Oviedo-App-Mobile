@@ -107,7 +107,18 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   // --- el perfil ---
   useEffect(() => {
     if (!cuenta) return
-    return escucharUsuario(cuenta.uid, (u) => {
+    return escucharUsuario(cuenta.uid, (u, fallo) => {
+      if (fallo) {
+        // Firestore ha dicho que no. Lo normal en un proyecto recién montado
+        // es que falten las reglas por desplegar, y decir «no estás dado de
+        // alta» mandaría a buscar el problema al sitio equivocado.
+        void expulsar(
+          fallo === 'permission-denied'
+            ? 'Firestore rechaza la lectura de tu ficha. Si acabas de montar el proyecto, faltan las reglas por desplegar (npm run reglas:desplegar).'
+            : 'No se ha podido leer tu ficha (' + fallo + '). Inténtalo de nuevo.',
+        )
+        return
+      }
       if (!u) {
         // Cuenta sin ficha: no la ha dado de alta ningún admin.
         void expulsar(
