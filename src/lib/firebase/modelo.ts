@@ -34,22 +34,85 @@ export const ROLES: { valor: Rol; etiqueta: string; explicacion: string }[] = [
   {
     valor: 'entrenador',
     etiqueta: 'Entrenador',
-    explicacion: 'Organiza sus equipos: avisos, entrenamientos y convocatorias.',
+    explicacion: 'Puede entrenar equipos: avisos, horarios y convocatorias de los suyos.',
   },
   {
     valor: 'jugador',
     etiqueta: 'Jugador',
-    explicacion: 'Ve lo suyo: calendario, horarios, chat y avisos del equipo.',
+    explicacion: 'Puede jugar en equipos: calendario, horarios, chat y avisos de los suyos.',
   },
 ]
 
 export const etiquetaRol = (rol: Rol) => ROLES.find((r) => r.valor === rol)?.etiqueta ?? rol
 
+/* --------------------------------------------------------------------------
+   Los roles van en plural.
+
+   En un club de verdad la gente hace más de una cosa: la entrenadora del
+   infantil juega en el sénior, y quien lleva la web además entrena a un
+   equipo. Con un solo rol había que elegir cuál de sus dos vidas contaba.
+
+   Hay DOS niveles y conviene no mezclarlos:
+
+     · Aquí, en el usuario, están los roles DE CLUB: lo que esa persona puede
+       llegar a ser. Es lo que abre o cierra la administración.
+     · En cada equipo, las listas `entrenadores` y `jugadores` dicen lo que es
+       en ESE equipo. Es lo que decide quién manda avisos en cada sitio.
+
+   Por eso ser «entrenador» de club no da mando sobre ningún equipo por sí
+   solo: hace falta además estar en la lista de entrenadores de ese equipo. Y
+   por eso la misma persona puede salir como jugadora en la plantilla de un
+   equipo y como entrenadora en la de otro.
+   -------------------------------------------------------------------------- */
+
+/** Manda en todo el club: altas, equipos y contenido de la web. */
+export const esAdmin = (u: { roles: Rol[] }) => u.roles.includes('admin')
+
+/** Puede figurar como entrenador de un equipo. Un admin también. */
+export const puedeEntrenar = (u: { roles: Rol[] }) =>
+  u.roles.includes('entrenador') || u.roles.includes('admin')
+
+/** Puede figurar en la plantilla de un equipo. */
+export const puedeJugar = (u: { roles: Rol[] }) => u.roles.includes('jugador')
+
+/**
+ * Lee los roles de un documento de Firestore, venga como venga.
+ *
+ * Los documentos anteriores a esto —y la primera ficha de admin, que se crea a
+ * mano en la consola siguiendo el README— traen `rol` en singular. Se admiten
+ * los dos formatos para siempre: no cuesta nada y evita una migración que, si
+ * se hace a medias, deja a alguien fuera de su propio club.
+ */
+export function rolesDe(datos: any): Rol[] {
+  const validos = ROLES.map((r) => r.valor)
+  const limpiar = (v: unknown[]) => v.filter((x): x is Rol => validos.includes(x as Rol))
+
+  if (Array.isArray(datos?.roles)) {
+    const lista = limpiar(datos.roles)
+    if (lista.length > 0) return lista
+  }
+  if (typeof datos?.rol === 'string') {
+    const lista = limpiar([datos.rol])
+    if (lista.length > 0) return lista
+  }
+  // Sin nada legible, lo más inofensivo: jugador no abre ninguna puerta.
+  return ['jugador']
+}
+
+/** 'Jugador y entrenador' — para enseñarlos en una línea. */
+export function resumenRoles(roles: Rol[]): string {
+  const nombres = ROLES.filter((r) => roles.includes(r.valor)).map((r) => r.etiqueta)
+  if (nombres.length === 0) return '—'
+  if (nombres.length === 1) return nombres[0]
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1].toLowerCase()}`
+}
+
 export interface Usuario {
   uid: string
   nombre: string
   email: string
-  rol: Rol
+  /** Roles de club. Ver el bloque de arriba: son capacidades, no el puesto. */
+  roles: Rol[]
   /** Ids de los equipos a los que pertenece. Un jugador puede doblar categoría. */
   equipos: string[]
   dorsal?: string
@@ -87,6 +150,14 @@ export interface Mensaje {
   id: string
   autor: string
   autorNombre: string
+  /**
+   * El papel del autor EN ESTE EQUIPO cuando escribió, no sus roles de club.
+   *
+   * Se guarda con el mensaje en vez de mirarlo al pintarlo: si alguien deja de
+   * entrenar a un equipo, sus mensajes de entonces siguen siendo los del
+   * entrenador que era. Y quien juega en un equipo y entrena en otro sale como
+   * lo que es en cada chat.
+   */
   autorRol: Rol
   texto: string
   creadoEn?: Timestamp

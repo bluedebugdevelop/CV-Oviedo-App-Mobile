@@ -42,10 +42,11 @@ import {
 import { escucharTodosLosUsuarios } from '../../../lib/firebase/usuarios'
 import {
   CATEGORIAS,
-  etiquetaRol,
+  puedeEntrenar,
+  puedeJugar,
+  resumenRoles,
   type Equipo,
   type Genero,
-  type Rol,
   type Usuario,
 } from '../../../lib/firebase/modelo'
 import { cargarIndiceCompeticion, type ResumenCompeticion } from '../../../lib/web/competicion'
@@ -136,7 +137,7 @@ export default function FichaEquipoAdmin() {
       ) : (
         <View style={{ gap: espacio.sm }}>
           {miembros.entrenadores.map((u) => (
-            <Miembro key={u.uid} usuario={u} equipoId={equipo.id} />
+            <Miembro key={u.uid} usuario={u} equipoId={equipo.id} papel="entrenador" />
           ))}
         </View>
       )}
@@ -148,7 +149,7 @@ export default function FichaEquipoAdmin() {
       ) : (
         <View style={{ gap: espacio.sm }}>
           {miembros.jugadores.map((u) => (
-            <Miembro key={u.uid} usuario={u} equipoId={equipo.id} />
+            <Miembro key={u.uid} usuario={u} equipoId={equipo.id} papel="jugador" />
           ))}
         </View>
       )}
@@ -318,9 +319,16 @@ function DatosEquipo({
 
 // --- miembros -------------------------------------------------------------
 
-function Miembro({ usuario, equipoId }: { usuario: Usuario; equipoId: string }) {
-  const paleta = colorRol[usuario.rol]
-
+function Miembro({
+  usuario,
+  equipoId,
+  papel,
+}: {
+  usuario: Usuario
+  equipoId: string
+  /** Lo que es EN ESTE equipo, que puede no ser lo mismo que en otro. */
+  papel: 'jugador' | 'entrenador'
+}) {
   function quitar() {
     Alert.alert('Sacar del equipo', `¿Sacar a ${usuario.nombre} de este equipo?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -343,8 +351,13 @@ function Miembro({ usuario, equipoId }: { usuario: Usuario; equipoId: string }) 
           {usuario.posicion || usuario.email}
         </Text>
       </View>
-      <Etiqueta fondo={paleta.fondo} texto={paleta.texto}>
-        {etiquetaRol(usuario.rol).slice(0, 4).toUpperCase()}
+      {/* El papel en ESTE equipo, no sus roles de club: quien aquí entrena
+          puede ser jugador en otro, y en esa otra ficha saldrá como tal. */}
+      <Etiqueta
+        fondo={colorRol[papel].fondo}
+        texto={colorRol[papel].texto}
+      >
+        {papel === 'entrenador' ? 'ENTRENA' : 'JUEGA'}
       </Etiqueta>
       <Pressable onPress={quitar} hitSlop={8} accessibilityRole="button" accessibilityLabel="Sacar">
         <Ionicons name="remove-circle-outline" size={22} color={color.rojo} />
@@ -382,16 +395,34 @@ function Anadir({
       .slice(0, 30)
   }, [todos, dentro, busqueda])
 
-  async function meter(u: Usuario) {
+  async function meter(u: Usuario, papel: 'jugador' | 'entrenador') {
     try {
-      // El rol dentro del equipo lo decide el rol de la persona: un entrenador
-      // entra como entrenador, un jugador como jugador. Un admin entra como
-      // entrenador, que es lo que significa que salga en la ficha de un equipo.
-      const comoRol: Rol = u.rol === 'jugador' ? 'jugador' : 'entrenador'
-      await anadirAEquipo(equipo.id, u.uid, comoRol)
+      await anadirAEquipo(equipo.id, u.uid, papel)
     } catch (err: any) {
       alFallar(err?.message ?? 'No se pudo añadir.')
     }
+  }
+
+  /**
+   * Con qué papel entra alguien en este equipo.
+   *
+   * Si por sus roles solo puede hacer una cosa, se hace y ya. Si puede las dos
+   * —quien entrena y además juega, que es justo lo que se quería permitir— se
+   * pregunta, porque el equipo guarda dos listas separadas y de ahí sale quién
+   * puede mandar avisos aquí.
+   */
+  function anadir(u: Usuario) {
+    const juega = puedeJugar(u)
+    const entrena = puedeEntrenar(u)
+
+    if (juega && !entrena) return void meter(u, 'jugador')
+    if (entrena && !juega) return void meter(u, 'entrenador')
+
+    Alert.alert(`Añadir a ${u.nombre.split(' ')[0]}`, '¿Con qué papel entra en este equipo?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Como jugador', onPress: () => void meter(u, 'jugador') },
+      { text: 'Como entrenador', onPress: () => void meter(u, 'entrenador') },
+    ])
   }
 
   if (!abierto) {
@@ -443,14 +474,14 @@ function Anadir({
             <View key={u.uid}>
               {i > 0 ? <Separador /> : null}
               <Pressable
-                onPress={() => meter(u)}
+                onPress={() => anadir(u)}
                 style={({ pressed }) => [e.candidato, pressed ? { opacity: 0.6 } : null]}
                 accessibilityRole="button"
               >
                 <View style={{ flex: 1 }}>
                   <Text style={e.miembroNombre}>{u.nombre}</Text>
                   <Text style={e.meta} numberOfLines={1}>
-                    {etiquetaRol(u.rol)} · {u.email}
+                    {resumenRoles(u.roles)} · {u.email}
                   </Text>
                 </View>
                 <Ionicons name="add-circle" size={24} color={color.azul} />

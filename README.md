@@ -15,6 +15,9 @@ para las noticias y los datos de competición.
 
 **Los tres niveles de usuario** que pidió el club:
 
+Los roles son una **lista**, no uno solo: la misma persona puede entrenar al
+infantil y jugar en el sénior, o llevar el club y además entrenar a un equipo.
+
 | | Jugador | Entrenador | Administrador |
 |---|:---:|:---:|:---:|
 | Noticias del club | ✅ | ✅ | ✅ |
@@ -25,6 +28,17 @@ para las noticias y los datos de competición.
 | Crear equipos y asignar plantilla | — | — | ✅ |
 | Dar de alta cuentas | — | — | ✅ |
 | Publicar en la web del club | — | — | ✅ |
+
+Y hay **dos niveles** que conviene no mezclar:
+
+- **Roles de club** (en la ficha del usuario): lo que alguien *puede* ser. Es
+  lo que abre o cierra la administración.
+- **Listas del equipo** (`entrenadores` y `jugadores`): lo que es *en ese
+  equipo*. Es lo que decide quién manda avisos y toca el horario en cada sitio.
+
+Por eso ser «entrenador» de club no da mando sobre un equipo al que no
+perteneces, y por eso alguien puede salir como jugador en la plantilla de un
+equipo y como entrenador en la de otro.
 
 **No hay registro abierto.** En la app no existe pantalla de «crear cuenta»: las
 cuentas las da de alta un administrador desde *Más → Usuarios*, con una
@@ -87,11 +101,18 @@ ninguno. Se hace a mano, una única vez:
    ```
    nombre      (string)  Adrián Estrada
    email       (string)  adrian@ejemplo.com
-   rol         (string)  admin
+   roles       (array)   ["admin"]
    equipos     (array)   []
    activo      (boolean) true
    tokensPush  (array)   []
    ```
+
+   La consola obliga a meter un elemento al crear un array; en `equipos` y
+   `tokensPush` bórralo luego con la papelera para que queden vacíos. La app
+   ignora los elementos vacíos igualmente, pero así queda limpio.
+
+   Las fichas antiguas con `rol` (string, en singular) siguen valiendo: tanto
+   la app como las reglas leen los dos formatos.
 
 A partir de ahí, todo lo demás se hace desde la app.
 

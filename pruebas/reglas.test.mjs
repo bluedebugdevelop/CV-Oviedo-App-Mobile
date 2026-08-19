@@ -34,6 +34,11 @@ const JUGADOR = 'uid-jugador'
 const OTRO = 'uid-otro-equipo'
 const BAJA = 'uid-de-baja'
 const COLADO = 'uid-sin-ficha'
+// Juega en un equipo y entrena en otro: el caso que antes no se podía modelar.
+const MIXTO = 'uid-mixto'
+// Ficha con el campo `rol` en singular, como las de antes del cambio y como la
+// primera de admin, que se crea a mano en la consola.
+const LEGADO = 'uid-legado'
 
 const EQUIPO = 'equipo-cadete-a'
 const AJENO = 'equipo-infantil-b'
@@ -54,35 +59,43 @@ before(async () => {
     const db = ctx.firestore()
 
     await setDoc(doc(db, 'usuarios', ADMIN), {
-      nombre: 'Ana Admin', email: 'ana@cvo.es', rol: 'admin',
+      nombre: 'Ana Admin', email: 'ana@cvo.es', roles: ['admin'],
       equipos: [], activo: true, tokensPush: [],
     })
+    await setDoc(doc(db, 'usuarios', LEGADO), {
+      nombre: 'Luis Legado', email: 'luis@cvo.es', rol: 'admin',
+      equipos: [], activo: true, tokensPush: [],
+    })
+    await setDoc(doc(db, 'usuarios', MIXTO), {
+      nombre: 'Marta Mixta', email: 'marta@cvo.es', roles: ['jugador', 'entrenador'],
+      equipos: [EQUIPO, AJENO], activo: true, tokensPush: [],
+    })
     await setDoc(doc(db, 'usuarios', ENTRENADOR), {
-      nombre: 'Edu Entrenador', email: 'edu@cvo.es', rol: 'entrenador',
+      nombre: 'Edu Entrenador', email: 'edu@cvo.es', roles: ['entrenador'],
       equipos: [EQUIPO], activo: true, tokensPush: [],
     })
     await setDoc(doc(db, 'usuarios', JUGADOR), {
-      nombre: 'Jimena Jugadora', email: 'jimena@cvo.es', rol: 'jugador',
+      nombre: 'Jimena Jugadora', email: 'jimena@cvo.es', roles: ['jugador'],
       equipos: [EQUIPO], activo: true, tokensPush: [], dorsal: '7',
     })
     await setDoc(doc(db, 'usuarios', OTRO), {
-      nombre: 'Olga Otra', email: 'olga@cvo.es', rol: 'jugador',
+      nombre: 'Olga Otra', email: 'olga@cvo.es', roles: ['jugador'],
       equipos: [AJENO], activo: true, tokensPush: [],
     })
     await setDoc(doc(db, 'usuarios', BAJA), {
-      nombre: 'Berta Baja', email: 'berta@cvo.es', rol: 'jugador',
+      nombre: 'Berta Baja', email: 'berta@cvo.es', roles: ['jugador'],
       equipos: [EQUIPO], activo: false, tokensPush: [],
     })
 
     await setDoc(doc(db, 'equipos', EQUIPO), {
       nombre: 'Cadete Femenino A', categoria: 'Cadete', genero: 'Femenino',
       temporada: '2026/27', claveCompeticion: null,
-      entrenadores: [ENTRENADOR], jugadores: [JUGADOR, BAJA], archivado: false,
+      entrenadores: [ENTRENADOR], jugadores: [JUGADOR, BAJA, MIXTO], archivado: false,
     })
     await setDoc(doc(db, 'equipos', AJENO), {
       nombre: 'Infantil Masculino B', categoria: 'Infantil', genero: 'Masculino',
       temporada: '2026/27', claveCompeticion: null,
-      entrenadores: [], jugadores: [OTRO], archivado: false,
+      entrenadores: [MIXTO], jugadores: [OTRO], archivado: false,
     })
 
     await setDoc(doc(db, 'equipos', EQUIPO, 'mensajes', 'm1'), {
@@ -123,7 +136,7 @@ describe('la puerta: sin ficha no se entra', () => {
   it('una cuenta sin ficha tampoco puede fabricarse la suya', async () => {
     await assertFails(
       setDoc(doc(como(COLADO), 'usuarios', COLADO), {
-        nombre: 'Yo Mismo', email: 'yo@ejemplo.com', rol: 'admin',
+        nombre: 'Yo Mismo', email: 'yo@ejemplo.com', roles: ['admin'],
         equipos: [], activo: true, tokensPush: [],
       }),
     )
@@ -175,7 +188,7 @@ describe('usuarios', () => {
   it('un entrenador NO puede dar de alta cuentas', async () => {
     await assertFails(
       setDoc(doc(como(ENTRENADOR), 'usuarios', 'uid-nuevo'), {
-        nombre: 'Nuevo', email: 'n@cvo.es', rol: 'jugador',
+        nombre: 'Nuevo', email: 'n@cvo.es', roles: ['jugador'],
         equipos: [], activo: true, tokensPush: [],
       }),
     )
@@ -184,7 +197,7 @@ describe('usuarios', () => {
   it('el admin da de alta cuentas', async () => {
     await assertSucceeds(
       setDoc(doc(como(ADMIN), 'usuarios', 'uid-alta'), {
-        nombre: 'Recién Llegada', email: 'nueva@cvo.es', rol: 'jugador',
+        nombre: 'Recién Llegada', email: 'nueva@cvo.es', roles: ['jugador'],
         equipos: [EQUIPO], activo: true, tokensPush: [],
       }),
     )
@@ -195,9 +208,36 @@ describe('usuarios', () => {
     await assertFails(deleteDoc(doc(como(ADMIN), 'usuarios', OTRO)))
   })
 
-  it('un admin no puede quitarse a sí mismo el rol', async () => {
+  it('un admin no puede quitarse a sí mismo el rol de admin', async () => {
     // Que lo haga otro: si no, el club se queda sin nadie que administre.
-    await assertFails(updateDoc(doc(como(ADMIN), 'usuarios', ADMIN), { rol: 'jugador' }))
+    await assertFails(updateDoc(doc(como(ADMIN), 'usuarios', ADMIN), { roles: ['jugador'] }))
+  })
+
+  it('pero sí puede cambiarse los demás roles', async () => {
+    // Lo que se protege es la llave del club, no el resto de la ficha: un
+    // admin puede apuntarse como jugador o dejar de serlo.
+    await assertSucceeds(
+      updateDoc(doc(como(ADMIN), 'usuarios', ADMIN), { roles: ['admin', 'jugador'] }),
+    )
+    await assertSucceeds(updateDoc(doc(como(ADMIN), 'usuarios', ADMIN), { roles: ['admin'] }))
+  })
+
+  it('una cuenta sin ningún rol no se puede crear', async () => {
+    await assertFails(
+      setDoc(doc(como(ADMIN), 'usuarios', 'uid-sin-roles'), {
+        nombre: 'Nadie', email: 'nadie@cvo.es', roles: [],
+        equipos: [], activo: true, tokensPush: [],
+      }),
+    )
+  })
+
+  it('un rol inventado no cuela', async () => {
+    await assertFails(
+      setDoc(doc(como(ADMIN), 'usuarios', 'uid-rol-raro'), {
+        nombre: 'Listo', email: 'listo@cvo.es', roles: ['superadmin'],
+        equipos: [], activo: true, tokensPush: [],
+      }),
+    )
   })
 })
 
@@ -361,6 +401,62 @@ describe('horario', () => {
     await assertSucceeds(
       addDoc(collection(como(ADMIN), 'equipos', EQUIPO, 'entrenamientos'), {
         dia: 4, inicio: '20:00', fin: '21:30', lugar: 'Pumarín', activo: true,
+      }),
+    )
+  })
+})
+
+describe('multirol', () => {
+  it('quien juega en un equipo y entrena en otro entra en los dos', async () => {
+    await assertSucceeds(getDoc(doc(como(MIXTO), 'equipos', EQUIPO)))
+    await assertSucceeds(getDoc(doc(como(MIXTO), 'equipos', AJENO)))
+  })
+
+  it('manda avisos SOLO donde entrena', async () => {
+    // En AJENO está en la lista de entrenadores: puede.
+    await assertSucceeds(
+      addDoc(collection(como(MIXTO), 'equipos', AJENO, 'avisos'), {
+        titulo: 'Entreno movido', cuerpo: '', tipo: 'general',
+        autor: MIXTO, autorNombre: 'Marta',
+        requiereConfirmacion: false, confirmados: [], rechazados: [], leidoPor: [],
+      }),
+    )
+    // En EQUIPO solo juega: no puede, aunque su rol de club sea entrenador.
+    await assertFails(
+      addDoc(collection(como(MIXTO), 'equipos', EQUIPO, 'avisos'), {
+        titulo: 'Mando yo', cuerpo: '', tipo: 'general',
+        autor: MIXTO, autorNombre: 'Marta',
+        requiereConfirmacion: false, confirmados: [], rechazados: [], leidoPor: [],
+      }),
+    )
+  })
+
+  it('toca el horario donde entrena y no donde juega', async () => {
+    await assertSucceeds(
+      addDoc(collection(como(MIXTO), 'equipos', AJENO, 'entrenamientos'), {
+        dia: 3, inicio: '18:00', fin: '19:30', lugar: 'Pumarín', activo: true,
+      }),
+    )
+    await assertFails(
+      updateDoc(doc(como(MIXTO), 'equipos', EQUIPO, 'entrenamientos', 'e1'), {
+        inicio: '09:00',
+      }),
+    )
+  })
+
+  it('ser entrenador de club no da mando sobre un equipo ajeno', async () => {
+    // Edu entrena EQUIPO; en AJENO no está, así que ahí no pinta nada.
+    await assertFails(getDoc(doc(como(ENTRENADOR), 'equipos', AJENO)))
+  })
+
+  it('las fichas con el campo `rol` en singular siguen valiendo', async () => {
+    // La primera ficha de admin se crea a mano en la consola con el campo
+    // viejo. Si dejara de valer, el club se quedaría sin quien administre.
+    await assertSucceeds(getDoc(doc(como(LEGADO), 'usuarios', OTRO)))
+    await assertSucceeds(
+      setDoc(doc(como(LEGADO), 'usuarios', 'uid-creado-por-legado'), {
+        nombre: 'Creada', email: 'creada@cvo.es', roles: ['jugador'],
+        equipos: [], activo: true, tokensPush: [],
       }),
     )
   })

@@ -78,7 +78,13 @@ export default function Chat() {
     try {
       await enviarMensaje(
         equipoActivo.id,
-        { uid: perfil.uid, nombre: perfil.nombre, rol: perfil.rol },
+        {
+          uid: perfil.uid,
+          nombre: perfil.nombre,
+          // El papel EN ESTE equipo, no los roles de club: quien entrena aquí
+          // y juega en el sénior sale como entrenador aquí y como jugador allí.
+          rol: equipoActivo.entrenadores.includes(perfil.uid) ? 'entrenador' : 'jugador',
+        },
         texto,
       )
     } catch {
@@ -127,18 +133,27 @@ export default function Chat() {
               pegado={mensajes[index + 1]?.autor === item.autor}
             />
           )}
-          ListEmptyComponent={
-            cargando ? null : (
-              <View style={e.vacio}>
-                <Vacio
-                  icono="chatbubble-ellipses-outline"
-                  titulo="Todavía no hay mensajes"
-                  texto="Escribe el primero. Lo verá todo el equipo y el entrenador."
-                />
-              </View>
-            )
-          }
         />
+
+        {/* Fuera de la FlatList a propósito.
+
+            Como `ListEmptyComponent`, el texto salía ESPEJADO. Una lista
+            invertida se dibuja dándole la vuelta a todo lo que lleva dentro, y
+            el componente de lista vacía no se libra. Se intentó compensar con
+            otro `scaleY: -1` encima, pero en React Native 0.86 el volteo no es
+            el que se suponía y quedaba al revés igualmente.
+
+            Sacarlo de la lista quita el problema de raíz en vez de pelearse con
+            transformaciones que dependen de la versión. */}
+        {!cargando && mensajes.length === 0 ? (
+          <View style={e.vacio} pointerEvents="none">
+            <Vacio
+              icono="chatbubble-ellipses-outline"
+              titulo="Todavía no hay mensajes"
+              texto="Escribe el primero. Lo verá todo el equipo y el entrenador."
+            />
+          </View>
+        ) : null}
 
         <View style={[e.barra, { paddingBottom: Math.max(bordes.bottom, espacio.md) }]}>
           <TextInput
@@ -193,9 +208,15 @@ function Burbuja({ m, mio, pegado }: { m: Mensaje; mio: boolean; pegado: boolean
 const e = StyleSheet.create({
   marcoSelector: { paddingHorizontal: espacio.lg, paddingTop: espacio.md },
   lista: { padding: espacio.lg, gap: espacio.sm, flexGrow: 1 },
-  // La lista invertida da la vuelta a todo lo que hay dentro, incluido el
-  // componente de lista vacía: sin esto, el mensaje saldría del revés.
-  vacio: { transform: [{ scaleY: -1 }], paddingTop: espacio.xxl },
+  // Encima de la lista vacía, sin transformaciones: ver el comentario de arriba.
+  vacio: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: 'center',
+  },
 
   fila: { flexDirection: 'row' },
   filaMia: { justifyContent: 'flex-end' },

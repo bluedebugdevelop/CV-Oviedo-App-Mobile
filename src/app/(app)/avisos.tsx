@@ -107,6 +107,7 @@ export default function Avisos() {
               equipoId={equipoActivo.id}
               mando={mando}
               plantilla={plantilla}
+              jugadoresDelEquipo={equipoActivo.jugadores}
             />
           ))}
         </View>
@@ -121,12 +122,15 @@ function TarjetaAviso({
   equipoId,
   mando,
   plantilla,
+  jugadoresDelEquipo,
 }: {
   aviso: Aviso
   uid: string
   equipoId: string
   mando: boolean
   plantilla: Usuario[]
+  /** uid de quienes juegan en ESTE equipo, que son los convocables. */
+  jugadoresDelEquipo: string[]
 }) {
   const [abierto, setAbierto] = useState(false)
   const p = PINTA[aviso.tipo]
@@ -153,8 +157,9 @@ function TarjetaAviso({
     ])
   }
 
-  // Solo cuentan los jugadores: el entrenador no se convoca a sí mismo.
-  const jugadores = plantilla.filter((x) => x.rol === 'jugador')
+  // Solo cuentan los jugadores DE ESTE equipo: el entrenador no se convoca a
+  // sí mismo, y quien aquí entrena puede ser jugador en otro equipo.
+  const jugadores = plantilla.filter((x) => jugadoresDelEquipo.includes(x.uid))
   const sinResponder = jugadores.filter(
     (j) => !aviso.confirmados.includes(j.uid) && !aviso.rechazados.includes(j.uid),
   )

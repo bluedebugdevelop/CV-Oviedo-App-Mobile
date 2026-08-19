@@ -33,7 +33,13 @@ import {
 import { mandaAqui, useSesion } from '../../contexto/sesion'
 import { fechaCorta, hora, relativoDia } from '../../lib/fechas'
 import { escucharEntrenamientos, escucharEventos } from '../../lib/firebase/entrenamientos'
-import { DIAS, type Entrenamiento, type Evento, type Usuario } from '../../lib/firebase/modelo'
+import {
+  DIAS,
+  type Entrenamiento,
+  type Equipo,
+  type Evento,
+  type Usuario,
+} from '../../lib/firebase/modelo'
 import { escucharUsuariosDeEquipo } from '../../lib/firebase/usuarios'
 import { useCompeticion } from '../../lib/hooks'
 import {
@@ -134,7 +140,7 @@ export default function MiEquipo() {
       ) : vista === 'horario' ? (
         <Horario entrenamientos={entrenamientos} eventos={eventos} mando={mando} />
       ) : (
-        <Plantilla gente={plantilla} />
+        <Plantilla gente={plantilla} equipo={equipoActivo} />
       )}
     </Pantalla>
   )
@@ -449,9 +455,14 @@ function Horario({
 
 // --- plantilla ------------------------------------------------------------
 
-function Plantilla({ gente }: { gente: Usuario[] }) {
-  const tecnicos = gente.filter((g) => g.rol !== 'jugador')
-  const jugadores = gente.filter((g) => g.rol === 'jugador')
+function Plantilla({ gente, equipo }: { gente: Usuario[]; equipo: Equipo }) {
+  /* Quién es qué se decide por las listas DEL EQUIPO, no por los roles de club.
+
+     Es lo que hace que quien entrena aquí y juega en el sénior aparezca en el
+     cuerpo técnico de este equipo y en la plantilla del otro. Con los roles de
+     club saldría en el mismo sitio en los dos, que era el fallo de antes. */
+  const tecnicos = gente.filter((g) => equipo.entrenadores.includes(g.uid))
+  const jugadores = gente.filter((g) => equipo.jugadores.includes(g.uid))
 
   if (gente.length === 0) {
     return (
@@ -475,7 +486,7 @@ function Plantilla({ gente }: { gente: Usuario[] }) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={e.personaNombre}>{t.nombre}</Text>
-                <Text style={e.mini}>{t.rol === 'admin' ? 'Club' : 'Entrenador'}</Text>
+                <Text style={e.mini}>Entrenador</Text>
               </View>
             </Tarjeta>
           ))}

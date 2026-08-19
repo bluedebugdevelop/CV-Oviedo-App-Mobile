@@ -30,7 +30,7 @@ import {
 import { createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth'
 
 import { authAlta, db } from './app'
-import type { Rol, Usuario } from './modelo'
+import { rolesDe, type Rol, type Usuario } from './modelo'
 
 const COL = 'usuarios'
 
@@ -57,7 +57,7 @@ function aUsuario(uid: string, datos: any): Usuario {
     uid,
     nombre: datos?.nombre ?? '',
     email: datos?.email ?? '',
-    rol: (datos?.rol ?? 'jugador') as Rol,
+    roles: rolesDe(datos),
     equipos: listaLimpia(datos?.equipos),
     dorsal: datos?.dorsal ?? '',
     posicion: datos?.posicion ?? '',
@@ -127,7 +127,7 @@ export interface AltaUsuario {
   nombre: string
   email: string
   clave: string
-  rol: Rol
+  roles: Rol[]
   equipos?: string[]
   dorsal?: string
   posicion?: string
@@ -164,7 +164,7 @@ export async function crearUsuario(datos: AltaUsuario, creadoPor: string): Promi
     await setDoc(docUsuario(uid), {
       nombre: datos.nombre.trim(),
       email,
-      rol: datos.rol,
+      roles: datos.roles,
       equipos: datos.equipos ?? [],
       dorsal: datos.dorsal ?? '',
       posicion: datos.posicion ?? '',

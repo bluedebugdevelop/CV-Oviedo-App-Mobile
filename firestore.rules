@@ -14,10 +14,15 @@
 // puede crearse una cuenta llamando al SDK por su cuenta, pero se queda sin
 // poder leer ni escribir absolutamente nada.
 //
-// Los tres roles:
+// Los roles son una LISTA: la misma persona puede entrenar al infantil y
+// jugar en el sénior, o llevar el club y además entrenar.
 //   · jugador     — ve lo de sus equipos, escribe en su chat, contesta avisos
-//   · entrenador  — además, manda avisos y pone el horario de SUS equipos
+//   · entrenador  — además, manda avisos y pone el horario de los equipos en
+//                   cuya lista de entrenadores figure
 //   · admin       — todo el club: equipos, altas y bajas
+//
+// Ojo con la diferencia: el rol de club dice lo que alguien PUEDE ser; quién
+// manda en un equipo concreto lo dicen las listas de ese equipo.
 //
 // COSTE
 // Cada `get()` de estas reglas es una lectura facturable. Se usan pocas y
@@ -50,8 +55,22 @@ service cloud.firestore {
       return tengoFicha() && miDoc().data.activo == true;
     }
 
+    /* Los roles de club, en plural.
+
+       Se lee `roles` y, si no está, se cae a `rol` en singular. Los documentos
+       de antes traen el campo viejo —la primera ficha de admin se crea a mano
+       en la consola siguiendo el README— y no se les puede dejar fuera de su
+       propio club por un cambio de formato.
+
+       Se usa `.get(clave, defecto)` y no `.clave` a propósito: leer una clave
+       que no existe hace fallar la regla entera, y una ficha vieja no tiene
+       `roles`. */
+    function misRoles() {
+      return miDoc().data.get('roles', [miDoc().data.get('rol', '')]);
+    }
+
     function soyAdmin() {
-      return soyDelClub() && miDoc().data.rol == 'admin';
+      return soyDelClub() && 'admin' in misRoles();
     }
 
     function misEquipos() {
@@ -101,16 +120,24 @@ service cloud.firestore {
       // abierto: nadie puede fabricarse su propia ficha, porque para crear una
       // hay que tener ya una con rol de admin.
       allow create: if soyAdmin()
-        && request.resource.data.rol in ['admin', 'entrenador', 'jugador']
+        // Al menos un rol, y solo de los que existen: una cuenta sin roles
+        // entra pero no puede hacer nada, y una con un rol inventado sería una
+        // puerta que nadie ha revisado.
+        && request.resource.data.roles is list
+        && request.resource.data.roles.size() > 0
+        && request.resource.data.roles.hasOnly(['admin', 'entrenador', 'jugador'])
         && request.resource.data.activo is bool
         && request.resource.data.equipos is list;
 
       allow update: if (
           soyAdmin()
-          // Un admin no puede quitarse a sí mismo el rol por descuido y dejar
-          // el club sin nadie que administre. Que se lo quite otro.
+          // Un admin no puede quitarse a sí mismo el rol de admin por descuido
+          // y dejar el club sin nadie que administre. Que se lo quite otro.
+          // Sí puede cambiarse los demás —dejar de jugar, por ejemplo—: lo que
+          // se protege es la llave del club, no el resto.
           && !(uid == request.auth.uid
-               && request.resource.data.rol != resource.data.rol)
+               && 'admin' in resource.data.get('roles', [resource.data.get('rol', '')])
+               && !('admin' in request.resource.data.get('roles', [])))
         ) || (
           // Cada cual apunta el aparato donde tiene la app instalada. Solo eso:
           // sin este `hasOnly`, un jugador podría ascenderse a admin de un

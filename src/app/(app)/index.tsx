@@ -16,7 +16,6 @@ import { useMemo } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { Pantalla } from '../../componentes/Pantalla'
-import { SelectorEquipo } from '../../componentes/SelectorEquipo'
 import { Banda, Boton, Cargando, Etiqueta, Franja, Tarjeta, Vacio } from '../../componentes/ui'
 import { useAvisos } from '../../contexto/avisos'
 import { useSesion } from '../../contexto/sesion'
@@ -55,8 +54,9 @@ export default function Inicio() {
       refrescando={contenido.refrescando}
       alRefrescar={contenido.recargar}
     >
-      <SelectorEquipo />
-
+      {/* El selector de equipo NO va aquí: Inicio es la pantalla del club
+          —noticias, lo que viene— y no la de ningún equipo en concreto. Se
+          cambia de equipo en las pestañas que sí son suyas. */}
       {equipos.length === 0 ? (
         <Banda tono="ojo">
           Todavía no estás en ningún equipo. En cuanto el club te asigne uno verás aquí su

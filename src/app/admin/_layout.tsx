@@ -15,6 +15,7 @@ import { Redirect, Stack } from 'expo-router'
 
 import { Cargando } from '../../componentes/ui'
 import { useSesion } from '../../contexto/sesion'
+import { esAdmin } from '../../lib/firebase/modelo'
 import { ProveedorPanel } from '../../contexto/panel'
 
 export default function DisposicionAdmin() {
@@ -24,7 +25,7 @@ export default function DisposicionAdmin() {
     return <Cargando />
   }
 
-  if (perfil?.rol !== 'admin') return <Redirect href="/" />
+  if (!perfil || !esAdmin(perfil)) return <Redirect href="/" />
 
   return (
     <ProveedorPanel>

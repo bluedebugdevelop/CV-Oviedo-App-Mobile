@@ -161,7 +161,13 @@ export async function quitarDeEquipo(equipoId: string, uid: string) {
 }
 
 /** ¿Puede esta persona mandar avisos y tocar el horario de este equipo? */
-export function mandaEnEquipo(equipo: Equipo | null, uid: string, rol: Rol): boolean {
-  if (rol === 'admin') return true
+export function mandaEnEquipo(
+  equipo: Equipo | null,
+  uid: string,
+  roles: Rol[],
+): boolean {
+  // Un admin manda en todos. El resto, solo donde figure como entrenador: ser
+  // «entrenador» de club no da mando sobre un equipo al que no perteneces.
+  if (roles.includes('admin')) return true
   return Boolean(equipo && equipo.entrenadores.includes(uid))
 }

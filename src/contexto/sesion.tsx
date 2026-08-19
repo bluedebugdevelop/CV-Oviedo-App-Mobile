@@ -218,6 +218,6 @@ export function useSesionActiva() {
 /** ¿Es entrenador de este equipo, o admin? */
 export function mandaAqui(sesion: { perfil: Usuario | null }, equipo: Equipo | null) {
   if (!sesion.perfil) return false
-  if (sesion.perfil.rol === 'admin') return true
+  if (sesion.perfil.roles.includes('admin')) return true
   return Boolean(equipo?.entrenadores.includes(sesion.perfil.uid))
 }

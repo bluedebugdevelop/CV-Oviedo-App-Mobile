@@ -20,16 +20,19 @@ import { Pantalla } from '../../componentes/Pantalla'
 import { Banda, Etiqueta, Fila, Franja, Separador, Tarjeta } from '../../componentes/ui'
 import { useSesion } from '../../contexto/sesion'
 import { WEB_BASE } from '../../lib/config'
-import { etiquetaRol } from '../../lib/firebase/modelo'
-import { colorRol, color, espacio, radio } from '../../tema'
+import { ChipsRoles } from '../../componentes/Roles'
+import { esAdmin, puedeEntrenar } from '../../lib/firebase/modelo'
+import { color, espacio, radio } from '../../tema'
 
 export default function Mas() {
   const { perfil, equipos, salir, avisoPush } = useSesion()
   if (!perfil) return null
 
-  const esAdmin = perfil.rol === 'admin'
-  const esTecnico = perfil.rol === 'entrenador' || esAdmin
-  const paleta = colorRol[perfil.rol]
+  const admin = esAdmin(perfil)
+  // Se enseñan las herramientas de entrenador a quien PUEDE entrenar, aunque
+  // hoy no lleve ningún equipo: si no, un entrenador recién dado de alta no ve
+  // nada y parece que la app está rota.
+  const tecnico = puedeEntrenar(perfil)
 
   function confirmarSalida() {
     Alert.alert('Cerrar sesión', '¿Seguro que quieres salir?', [
@@ -51,9 +54,7 @@ export default function Mas() {
             {perfil.email}
           </Text>
           <View style={e.etiquetas}>
-            <Etiqueta fondo={paleta.fondo} texto={paleta.texto}>
-              {etiquetaRol(perfil.rol).toUpperCase()}
-            </Etiqueta>
+            <ChipsRoles roles={perfil.roles} />
             {perfil.dorsal ? <Etiqueta>DORSAL {perfil.dorsal}</Etiqueta> : null}
           </View>
         </View>
@@ -85,7 +86,7 @@ export default function Mas() {
       ) : null}
 
       {/* --- entrenador --- */}
-      {esTecnico ? (
+      {tecnico ? (
         <>
           <Franja titulo="Mi equipo" />
           <Tarjeta style={e.lista}>
@@ -107,7 +108,7 @@ export default function Mas() {
       ) : null}
 
       {/* --- administración --- */}
-      {esAdmin ? (
+      {admin ? (
         <>
           <Franja titulo="Administración del club" />
           <Tarjeta style={e.lista}>
