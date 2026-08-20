@@ -210,6 +210,29 @@ Dos capas que conviene no confundir:
 - **El aviso del sistema** (el que suena con la app cerrada) va por Expo Push y
   necesita permiso, móvil de verdad y una build de desarrollo o de tienda.
 
+### Los dos ficheros de Firebase que se confunden
+
+Configurar el push falla casi siempre por dar uno donde va el otro:
+
+| Fichero | Qué es | ¿A git? |
+|---|---|:---:|
+| `google-services.json` (raíz) | Configuración **pública**: viaja dentro de la app y es lo que deja al móvil registrarse en FCM. | Sí |
+| `secretos/…-firebase-adminsdk-….json` | Clave de **cuenta de servicio**. Se sube a Expo para que pueda enviar. Da acceso al proyecto entero. | **Nunca** |
+
+La clave de cuenta de servicio se descarga en **Consola de Firebase → ⚙️
+Configuración del proyecto → Cuentas de servicio → Generar nueva clave
+privada**, y se entrega a Expo con:
+
+```bash
+npx eas credentials
+```
+
+→ *Android* → *production* → *Google Service Account* → *Manage your Google
+Service Account Key for Push Notifications (FCM V1)* → *Set up*.
+
+No hace falta recompilar después: esa clave vive en el servidor de Expo, no en
+la app.
+
 La segunda es un extra sobre la primera: si falla el push, el aviso sigue ahí al
 abrir la app.
 
