@@ -7,6 +7,7 @@
     "@expo/ui": "~57.0.11",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.14",
     "expo-clipboard": "~57.0.1",
     "expo-constants": "~57.0.12",
@@ -53,7 +54,9 @@
     "assets": "node scripts/assets.mjs",
     "tipos": "tsc --noEmit",
     "pruebas:reglas": "firebase emulators:exec --only firestore --project cvo-pruebas \"node --test pruebas/\"",
-    "reglas:desplegar": "firebase deploy --only firestore:rules,firestore:indexes"
+    "reglas:desplegar": "firebase deploy --only firestore:rules,firestore:indexes",
+    "apk": "cd android && gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64",
+    "nativo": "expo prebuild --platform android --clean"
   },
   "private": true
 }

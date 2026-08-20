@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "489469323392",
+    "project_id": "cv-oviedo",
+    "storage_bucket": "cv-oviedo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:489469323392:android:ca04283183ea2f79fa1e65",
+        "android_client_info": {
+          "package_name": "com.clubvoleiboloviedo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAmzk0AJggb6rhsbC2kcWKraJBlOXKGx0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

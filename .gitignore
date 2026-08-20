@@ -63,3 +63,12 @@ secretos/
 firestore-debug.log
 ui-debug.log
 firebase-debug.log
+
+# `google-services.json` SÍ va al repositorio: no es un secreto (lleva el id del
+# proyecto y una clave de API que ya viaja dentro de la app), y sin él la
+# compilación de Android no puede registrar el móvil en FCM.
+#
+# Lo que NO va nunca es la clave de cuenta de servicio que se sube a Expo para
+# poder enviar las notificaciones. Esa sí abre la puerta al proyecto entero.
+firebase-adminsdk*.json
+*-firebase-adminsdk-*.json

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 
+import { CampoFecha } from '../componentes/CampoFecha'
 import { Pantalla } from '../componentes/Pantalla'
 import {
   Banda,
@@ -26,7 +27,7 @@ import {
   Vacio,
 } from '../componentes/ui'
 import { mandaAqui, useSesion } from '../contexto/sesion'
-import { fechaLarga, hora, horaValida, normalizaHora } from '../lib/fechas'
+import { fechaLarga, hora } from '../lib/fechas'
 import {
   actualizarEntrenamiento,
   borrarEntrenamiento,
@@ -39,6 +40,17 @@ import {
 import { DIAS, DIAS_ORDEN, type DiaSemana, type Entrenamiento, type Evento } from '../lib/firebase/modelo'
 import { aFecha } from '../lib/web/competicion'
 import { color, espacio, radio } from '../tema'
+
+/**
+ * Dónde entrena el club.
+ *
+ * Todos los equipos entrenan en el mismo sitio, así que preguntarlo en cada
+ * entrenamiento era teclear siempre lo mismo y arriesgarse a que cada
+ * entrenador lo escribiera de una forma. El modelo sigue guardando el lugar en
+ * cada entrenamiento: si algún día el club usa dos pabellones, se vuelve a
+ * poner el campo y lo que ya esté escrito sigue valiendo.
+ */
+const SEDE_CLUB = 'Polideportivo José Manuel Fuente (Colloto)'
 
 export default function Entrenamientos() {
   const sesion = useSesion()
@@ -193,33 +205,31 @@ export default function Entrenamientos() {
 function NuevoEntrenamiento({ equipoId }: { equipoId: string }) {
   const [abierto, setAbierto] = useState(false)
   const [dia, setDia] = useState<DiaSemana>(1)
-  const [inicio, setInicio] = useState('')
-  const [fin, setFin] = useState('')
-  const [lugar, setLugar] = useState('')
-  const [notas, setNotas] = useState('')
+  const [inicio, setInicio] = useState<Date | null>(null)
+  const [fin, setFin] = useState<Date | null>(null)
+  const [notas, setNotas] = useState<string>("")
   const [guardando, setGuardando] = useState(false)
 
-  const horasOk = horaValida(inicio) && horaValida(fin)
-  // Un entrenamiento que acaba antes de empezar es un dedazo, no un turno de
-  // noche: se avisa en vez de guardarlo.
-  const ordenOk = !horasOk || inicio < fin
+  const horasPuestas = inicio !== null && fin !== null
+  /* Un entrenamiento que acaba antes de empezar es un dedazo, no un turno de
+     noche: se avisa en vez de guardarlo. */
+  const ordenOk = !horasPuestas || hora(inicio!) < hora(fin!)
 
   async function guardar() {
-    if (!horasOk || !ordenOk || guardando) return
+    if (!horasPuestas || !ordenOk || guardando) return
     setGuardando(true)
     try {
       await crearEntrenamiento(equipoId, {
         dia,
-        inicio,
-        fin,
-        lugar: lugar.trim(),
+        inicio: hora(inicio!),
+        fin: hora(fin!),
+        lugar: SEDE_CLUB,
         notas: notas.trim(),
         activo: true,
       })
-      setInicio('')
-      setFin('')
-      setLugar('')
-      setNotas('')
+      setInicio(null)
+      setFin(null)
+      setNotas("")
       setAbierto(false)
     } finally {
       setGuardando(false)
@@ -251,42 +261,28 @@ function NuevoEntrenamiento({ equipoId }: { equipoId: string }) {
 
       <View style={e.dosCampos}>
         <View style={{ flex: 1 }}>
-          <Campo
-            etiqueta="Empieza"
-            value={inicio}
-            onChangeText={(v) => setInicio(normalizaHora(v))}
-            placeholder="20:00"
-            keyboardType="number-pad"
-            maxLength={5}
-            error={inicio && !horaValida(inicio) ? 'Hora no válida' : undefined}
-          />
+          <CampoFecha etiqueta="Empieza" modo="hora" valor={inicio} alElegir={setInicio} />
         </View>
         <View style={{ flex: 1 }}>
-          <Campo
+          <CampoFecha
             etiqueta="Acaba"
-            value={fin}
-            onChangeText={(v) => setFin(normalizaHora(v))}
-            placeholder="21:30"
-            keyboardType="number-pad"
-            maxLength={5}
-            error={
-              fin && !horaValida(fin)
-                ? 'Hora no válida'
-                : !ordenOk
-                  ? 'Acaba antes de empezar'
-                  : undefined
-            }
+            modo="hora"
+            valor={fin}
+            alElegir={setFin}
+            ayuda={!ordenOk ? "Acaba antes de empezar" : undefined}
           />
         </View>
       </View>
 
-      <Campo
-        etiqueta="Lugar"
-        value={lugar}
-        onChangeText={setLugar}
-        placeholder="Polideportivo de Pumarín"
-        maxLength={80}
-      />
+      {/* El lugar no se pregunta: todo el club entrena en el mismo sitio.
+          Si algún día deja de ser así, se cambia SEDE_CLUB —arriba— o vuelve
+          a ponerse el campo; el modelo sigue guardando el lugar de cada
+          entrenamiento, así que los que ya estén escritos no se tocan. */}
+      <View style={e.sede}>
+        <Ionicons name="location-outline" size={17} color={color.azul} />
+        <Text style={e.sedeTexto}>{SEDE_CLUB}</Text>
+      </View>
+
       <Campo
         etiqueta="Notas (opcional)"
         value={notas}
@@ -302,7 +298,7 @@ function NuevoEntrenamiento({ equipoId }: { equipoId: string }) {
         <Boton
           onPress={guardar}
           cargando={guardando}
-          desactivado={!horasOk || !ordenOk}
+          desactivado={!horasPuestas || !ordenOk}
           style={{ flex: 1 }}
         >
           Guardar
@@ -316,33 +312,53 @@ function NuevoEntrenamiento({ equipoId }: { equipoId: string }) {
 
 function NuevaCita({ equipoId }: { equipoId: string }) {
   const [abierto, setAbierto] = useState(false)
-  const [titulo, setTitulo] = useState('')
-  const [fecha, setFecha] = useState('')
-  const [horaTexto, setHoraTexto] = useState('')
-  const [lugar, setLugar] = useState('')
+  const [titulo, setTitulo] = useState("")
+  /* Una sola fecha con su hora dentro, y dos selectores que la tocan.
+
+     Antes eran dos textos que se validaban juntos, y ahí estaba el fallo: la
+     comprobación de la fecha pasaba por la de la hora, así que una fecha
+     perfectamente válida salía marcada en rojo mientras el campo de hora
+     estuviera vacío. Con un Date no hay nada que cruzar. */
+  const [cuando, setCuando] = useState<Date | null>(null)
+  const [lugar, setLugar] = useState<string>(SEDE_CLUB)
   const [guardando, setGuardando] = useState(false)
 
-  const fechaOk = /^\d{2}\/\d{2}\/\d{4}$/.test(fecha) && aIso(fecha, horaTexto) !== null
-  const listo = titulo.trim().length >= 3 && fechaOk && horaValida(horaTexto)
+  const listo = titulo.trim().length >= 3 && cuando !== null
+
+  /** Cambia el día dejando la hora como estaba, y al revés. */
+  function ponerDia(elegido: Date) {
+    setCuando((actual) => {
+      const f = new Date(elegido)
+      if (actual) f.setHours(actual.getHours(), actual.getMinutes(), 0, 0)
+      else f.setSeconds(0, 0)
+      return f
+    })
+  }
+
+  function ponerHora(elegida: Date) {
+    setCuando((actual) => {
+      const f = new Date(actual ?? elegida)
+      f.setHours(elegida.getHours(), elegida.getMinutes(), 0, 0)
+      return f
+    })
+  }
 
   async function guardar() {
-    const iso = aIso(fecha, horaTexto)
-    if (!listo || !iso || guardando) return
+    if (!listo || guardando) return
     setGuardando(true)
     try {
       await crearEvento(equipoId, {
         titulo: titulo.trim(),
-        tipo: 'otro',
-        iso,
+        tipo: "otro",
+        iso: aIso(cuando!),
         lugar: lugar.trim(),
-        rival: '',
-        notas: '',
+        rival: "",
+        notas: "",
         convocados: [],
       })
-      setTitulo('')
-      setFecha('')
-      setHoraTexto('')
-      setLugar('')
+      setTitulo("")
+      setCuando(null)
+      setLugar(SEDE_CLUB)
       setAbierto(false)
     } finally {
       setGuardando(false)
@@ -373,36 +389,24 @@ function NuevaCita({ equipoId }: { equipoId: string }) {
         maxLength={100}
       />
 
-      <View style={e.dosCampos}>
-        <View style={{ flex: 1 }}>
-          <Campo
-            etiqueta="Fecha"
-            value={fecha}
-            onChangeText={(v) => setFecha(normalizaFecha(v))}
-            placeholder="12/09/2026"
-            keyboardType="number-pad"
-            maxLength={10}
-            error={fecha.length === 10 && !fechaOk ? 'Fecha no válida' : undefined}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Campo
-            etiqueta="Hora"
-            value={horaTexto}
-            onChangeText={(v) => setHoraTexto(normalizaHora(v))}
-            placeholder="18:00"
-            keyboardType="number-pad"
-            maxLength={5}
-            error={horaTexto && !horaValida(horaTexto) ? 'Hora no válida' : undefined}
-          />
-        </View>
-      </View>
+      <CampoFecha
+        etiqueta="Día"
+        modo="fecha"
+        valor={cuando}
+        alElegir={ponerDia}
+        minimo={new Date()}
+      />
 
+      <CampoFecha etiqueta="Hora" modo="hora" valor={cuando} alElegir={ponerHora} />
+
+      {/* En las citas el lugar sí se pregunta: un amistoso fuera se juega en
+          el pabellón del rival. Viene relleno con el del club porque es lo
+          más habitual. */}
       <Campo
-        etiqueta="Lugar (opcional)"
+        etiqueta="Lugar"
         value={lugar}
         onChangeText={setLugar}
-        placeholder="Palacio de los Deportes"
+        placeholder={SEDE_CLUB}
         maxLength={80}
       />
 
@@ -418,30 +422,20 @@ function NuevaCita({ equipoId }: { equipoId: string }) {
   )
 }
 
-/** Mete las barras solas: '12092026' → '12/09/2026'. */
-function normalizaFecha(v: string): string {
-  const n = v.replace(/\D/g, '').slice(0, 8)
-  if (n.length <= 2) return n
-  if (n.length <= 4) return `${n.slice(0, 2)}/${n.slice(2)}`
-  return `${n.slice(0, 2)}/${n.slice(2, 4)}/${n.slice(4)}`
-}
-
 /**
- * 'DD/MM/AAAA' + 'HH:MM' → el ISO local que guarda el evento.
+ * Un Date al texto que guarda el evento: "YYYY-MM-DDTHH:MM".
  *
- * Devuelve `null` si el día no existe (un 31 de febrero). Se comprueba
- * reconstruyendo la fecha: `new Date(2026, 1, 31)` no falla, se va al 3 de
- * marzo, así que hay que mirar si los números siguen siendo los mismos.
+ * A mano y no con `toISOString()`, que pasa a UTC: un amistoso a las 00:30
+ * de un sábado acabaría guardado el viernes. Aquí los números son los que se
+ * eligieron, en la hora de aquí, igual que los lee `aFecha`.
  */
-function aIso(fecha: string, horaTexto: string): string | null {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fecha)
-  if (!m || !horaValida(horaTexto)) return null
-  const [, dd, mm, aaaa] = m
-  const prueba = new Date(+aaaa, +mm - 1, +dd)
-  if (prueba.getDate() !== +dd || prueba.getMonth() !== +mm - 1) return null
-  return `${aaaa}-${mm}-${dd}T${horaTexto}`
+function aIso(f: Date): string {
+  const dos = (n: number) => String(n).padStart(2, "0")
+  return (
+    `${f.getFullYear()}-${dos(f.getMonth() + 1)}-${dos(f.getDate())}` +
+    `T${dos(f.getHours())}:${dos(f.getMinutes())}`
+  )
 }
-
 const e = StyleSheet.create({
   fila: { flexDirection: 'row', alignItems: 'center', gap: espacio.md, padding: espacio.md },
   dia: {
@@ -458,4 +452,14 @@ const e = StyleSheet.create({
   mini: { fontSize: 12.5, color: color.apagado, lineHeight: 18 },
   iconoBoton: { padding: 6 },
   dosCampos: { flexDirection: 'row', gap: espacio.md },
+  sede: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espacio.sm,
+    backgroundColor: color.tinte,
+    borderRadius: radio.md,
+    padding: espacio.md,
+    marginBottom: espacio.lg,
+  },
+  sedeTexto: { flex: 1, fontSize: 13.5, color: color.azulOscuro, fontWeight: '600' },
 })
