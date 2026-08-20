@@ -39,6 +39,7 @@
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
     "@types/react": "~19.2.2",
+    "eas-cli": "^22.0.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.1",
     "firebase-tools": "^13.35.1",

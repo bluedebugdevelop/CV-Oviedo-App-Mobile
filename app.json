@@ -37,7 +37,8 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
@@ -88,7 +89,7 @@
       },
       "router": {},
       "eas": {
-        "projectId": "00000000-0000-0000-0000-000000000000"
+        "projectId": "6e3fb271-c578-4c88-ba4d-b034da2e1750"
       }
     },
     "runtimeVersion": {
@@ -96,6 +97,7 @@
     },
     "updates": {
       "fallbackToCacheTimeout": 0
-    }
+    },
+    "owner": "adriest"
   }
 }
