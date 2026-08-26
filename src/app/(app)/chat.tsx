@@ -30,7 +30,10 @@ import { Vacio } from '../../componentes/ui'
 import { useSesion } from '../../contexto/sesion'
 import { aDate, selloChat } from '../../lib/fechas'
 import { LIMITE_MENSAJE, enviarMensaje, escucharMensajes } from '../../lib/firebase/chat'
-import type { Mensaje } from '../../lib/firebase/modelo'
+import type { Mensaje, Usuario } from '../../lib/firebase/modelo'
+import { avisarMensaje } from '../../lib/firebase/notificar'
+import { escucharUsuariosDeEquipo } from '../../lib/firebase/usuarios'
+import { ponerChatAbierto } from '../../lib/foco'
 import { color, espacio, radio } from '../../tema'
 
 export default function Chat() {
@@ -46,6 +49,8 @@ export default function Chat() {
   })
   const [borrador, setBorrador] = useState('')
   const [enviando, setEnviando] = useState(false)
+  // Para los tokens de quien tiene que recibir la notificación.
+  const [plantilla, setPlantilla] = useState<Usuario[]>([])
 
   const alDia = recibido.equipoId === (equipoActivo?.id ?? null)
   const mensajes = alDia ? recibido.lista : []
@@ -65,6 +70,22 @@ export default function Chat() {
     if (!equipoActivo) return
     const id = equipoActivo.id
     return escucharMensajes(id, (lista) => setRecibido({ equipoId: id, lista }))
+  }, [equipoActivo])
+
+  useEffect(() => {
+    if (!equipoActivo) return
+    return escucharUsuariosDeEquipo(equipoActivo.id, setPlantilla)
+  }, [equipoActivo])
+
+  /* Mientras esta pantalla esté delante, los mensajes de ESTE equipo no
+     suenan: se están viendo llegar. Es lo que hace cualquier app de
+     mensajería y sin ello escribir con el equipo es una ristra de pitidos.
+
+     Se apunta al montar y se borra al salir. El manejador que lo consulta
+     vive fuera de React, de ahí el módulo suelto (lib/foco.ts). */
+  useEffect(() => {
+    ponerChatAbierto(equipoActivo?.id ?? null)
+    return () => ponerChatAbierto(null)
   }, [equipoActivo])
 
   async function mandar() {
@@ -87,6 +108,14 @@ export default function Chat() {
         },
         texto,
       )
+
+      /* El aviso al resto va DESPUÉS y sin esperarlo.
+
+         El mensaje ya está guardado y ya se ve en el chat de todos; que la
+         notificación salga o no es un extra. Esperarla solo conseguiría que
+         el campo se quedara bloqueado un segundo por algo que al que
+         escribe no le importa. */
+      void avisarMensaje(equipoActivo, plantilla, perfil, texto)
     } catch {
       // Si no se pudo mandar, se devuelve el texto al campo en vez de perderlo.
       if (montado.current) setBorrador(texto)

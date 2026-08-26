@@ -21,6 +21,14 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 import { ProveedorSesion, useSesion } from '../contexto/sesion'
+/* Solo por el efecto de importarlo: dentro llama a `defineTask`.
+
+   Va aquí, en la raíz, y no en una pantalla. El sistema puede arrancar el
+   proceso SIN abrir ninguna pantalla —precisamente para ejecutar la tarea— y
+   para entonces la tarea ya tiene que estar definida. Desde una pantalla
+   existiría solo mientras alguien la tuviera delante, que es justo cuando no
+   hace falta. */
+import '../tareas/calendario'
 import { color } from '../tema'
 
 void SplashScreen.preventAutoHideAsync()

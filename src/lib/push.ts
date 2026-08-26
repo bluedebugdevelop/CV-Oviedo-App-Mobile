@@ -32,38 +32,90 @@ import * as Notifications from 'expo-notifications'
 import Constants from 'expo-constants'
 import { Platform } from 'react-native'
 
+import { mirandoChatDe } from './foco'
 import { color } from '../tema'
 
 const API_EXPO = 'https://exp.host/--/api/v2/push/send'
 
-/** Con la app abierta, un aviso se enseña igual: es el punto de la app. */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-})
-
 /**
- * El canal de Android.
+ * Los canales de Android.
  *
  * Android exige canal desde la versión 8: sin uno declarado, las
- * notificaciones llegan pero mudas y sin vibración, y el usuario no puede
- * configurarlas. El nombre se ve en los ajustes del sistema, así que va en
- * castellano y dice algo.
+ * notificaciones llegan pero mudas y sin vibración. Van cuatro y no uno porque
+ * el sistema deja silenciar cada canal por separado desde los ajustes del
+ * móvil: quien no quiera el pitido de cada mensaje del chat puede callarlo sin
+ * perderse una convocatoria. El nombre y la descripción son lo que se lee en
+ * esa pantalla de ajustes, así que dicen algo.
+ *
+ * En iOS no existen los canales; allí es todo o nada, y `channelId` se ignora.
  */
-export async function prepararCanal() {
+export const CANALES = {
+  avisos: 'avisos',
+  chat: 'chat',
+  club: 'club',
+  calendario: 'calendario',
+} as const
+
+export type Canal = (typeof CANALES)[keyof typeof CANALES]
+
+export async function prepararCanales() {
   if (Platform.OS !== 'android') return
-  await Notifications.setNotificationChannelAsync('avisos', {
-    name: 'Avisos del equipo',
-    description: 'Convocatorias, cambios de horario y mensajes del entrenador.',
+
+  await Notifications.setNotificationChannelAsync(CANALES.avisos, {
+    name: 'Avisos del entrenador',
+    description: 'Convocatorias y avisos importantes de tu equipo.',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: color.azul,
   })
+
+  await Notifications.setNotificationChannelAsync(CANALES.chat, {
+    name: 'Chat del equipo',
+    description: 'Mensajes nuevos en el chat de tus equipos.',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 120],
+    lightColor: color.azul,
+  })
+
+  await Notifications.setNotificationChannelAsync(CANALES.calendario, {
+    name: 'Horarios y partidos',
+    description: 'Cambios de hora o de sede en los partidos y entrenamientos.',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: color.azul,
+  })
+
+  await Notifications.setNotificationChannelAsync(CANALES.club, {
+    name: 'Noticias del club',
+    description: 'Lo que publica el club en su web.',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    lightColor: color.azul,
+  })
 }
+
+/**
+ * Qué hacer con una notificación que llega con la app abierta.
+ *
+ * Casi siempre: enseñarla. La excepción es el chat que se está mirando en ese
+ * momento — que suene un mensaje que estás viendo aparecer es justo lo que
+ * nadie quiere, y es lo que hace cualquier app de mensajería.
+ *
+ * `mirandoChatDe` vive en un módulo suelto porque esto se registra al cargar la
+ * app, fuera del árbol de React, y no puede leer un contexto.
+ */
+Notifications.setNotificationHandler({
+  handleNotification: async (notificacion) => {
+    const datos = notificacion.request.content.data as Record<string, unknown>
+    const enElChatAbierto = datos?.tipo === 'chat' && mirandoChatDe(datos?.equipoId)
+
+    return {
+      shouldShowBanner: !enElChatAbierto,
+      shouldShowList: !enElChatAbierto,
+      shouldPlaySound: !enElChatAbierto,
+      shouldSetBadge: true,
+    }
+  },
+})
 
 function idProyecto(): string | null {
   const id =
@@ -89,7 +141,7 @@ export interface ResultadoRegistro {
  * que no al permiso o que está en un emulador.
  */
 export async function registrarParaPush(): Promise<ResultadoRegistro> {
-  await prepararCanal()
+  await prepararCanales()
 
   if (!Device.isDevice) {
     return { token: null, motivo: 'Las notificaciones solo funcionan en un móvil real.' }
@@ -128,6 +180,16 @@ export interface Envio {
   cuerpo: string
   /** Viaja con la notificación; sirve para abrir la pantalla que toca al tocarla. */
   datos?: Record<string, unknown>
+  /** Canal de Android. Decide si suena fuerte, flojo o nada. */
+  canal?: Canal
+  /**
+   * Agrupa notificaciones relacionadas.
+   *
+   * Con el mismo hilo, veinte mensajes del chat del cadete se apilan en una
+   * sola tarjeta en vez de llenar la pantalla de bloqueo, igual que en
+   * cualquier app de mensajería.
+   */
+  hilo?: string
 }
 
 /**
@@ -161,7 +223,10 @@ export async function enviarPush(tokens: string[], envio: Envio): Promise<number
             title: envio.titulo,
             body: envio.cuerpo,
             data: envio.datos ?? {},
-            channelId: 'avisos',
+            channelId: envio.canal ?? CANALES.avisos,
+            // Android agrupa por `categoryId`; iOS por `threadId`. Se mandan
+            // los dos y cada sistema usa el suyo.
+            ...(envio.hilo ? { categoryId: envio.hilo, threadId: envio.hilo } : {}),
             priority: 'high',
           })),
         ),

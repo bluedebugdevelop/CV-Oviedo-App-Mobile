@@ -37,7 +37,16 @@ import {
   escucharEntrenamientos,
   escucharEventos,
 } from '../lib/firebase/entrenamientos'
-import { DIAS, DIAS_ORDEN, type DiaSemana, type Entrenamiento, type Evento } from '../lib/firebase/modelo'
+import {
+  DIAS,
+  DIAS_ORDEN,
+  type DiaSemana,
+  type Entrenamiento,
+  type Evento,
+  type Usuario,
+} from '../lib/firebase/modelo'
+import { avisarHorario } from '../lib/firebase/notificar'
+import { escucharUsuariosDeEquipo } from '../lib/firebase/usuarios'
 import { aFecha } from '../lib/web/competicion'
 import { color, espacio, radio } from '../tema'
 
@@ -54,11 +63,13 @@ const SEDE_CLUB = 'Polideportivo José Manuel Fuente (Colloto)'
 
 export default function Entrenamientos() {
   const sesion = useSesion()
-  const { equipoActivo } = sesion
+  const { equipoActivo, perfil } = sesion
   const puede = mandaAqui(sesion, equipoActivo)
 
   const [entrenos, setEntrenos] = useState<Entrenamiento[]>([])
   const [eventos, setEventos] = useState<Evento[]>([])
+  // Para los tokens de a quién avisar del cambio.
+  const [plantilla, setPlantilla] = useState<Usuario[]>([])
 
   useEffect(() => {
     if (!equipoActivo) return
@@ -69,6 +80,22 @@ export default function Entrenamientos() {
     if (!equipoActivo) return
     return escucharEventos(equipoActivo.id, setEventos)
   }, [equipoActivo])
+
+  useEffect(() => {
+    if (!equipoActivo) return
+    return escucharUsuariosDeEquipo(equipoActivo.id, setPlantilla)
+  }, [equipoActivo])
+
+  /* Avisar al equipo de un cambio de horario.
+
+     Va sin esperar y sin poder fallar hacia fuera: el cambio ya está
+     guardado y ya se ve en la app de todos. Que salga la notificación es un
+     extra, y bloquear la pantalla por ella solo conseguiría que el
+     entrenador dudara de si el cambio se guardó. */
+  const avisar = (detalle: string) => {
+    if (!equipoActivo || !perfil) return
+    void avisarHorario(equipoActivo, plantilla, perfil, detalle)
+  }
 
   if (!equipoActivo || !puede) {
     return (
@@ -86,7 +113,10 @@ export default function Entrenamientos() {
       {
         text: 'Quitar',
         style: 'destructive',
-        onPress: () => void borrarEntrenamiento(equipoActivo!.id, x.id).catch(() => {}),
+        onPress: () => {
+          void borrarEntrenamiento(equipoActivo!.id, x.id).catch(() => {})
+          avisar(`Se quita el entrenamiento de los ${DIAS[x.dia].toLowerCase()} (${x.inicio}–${x.fin})`)
+        },
       },
     ])
   }
@@ -97,7 +127,10 @@ export default function Entrenamientos() {
       {
         text: 'Quitar',
         style: 'destructive',
-        onPress: () => void borrarEvento(equipoActivo!.id, ev.id).catch(() => {}),
+        onPress: () => {
+          void borrarEvento(equipoActivo!.id, ev.id).catch(() => {})
+          avisar(`Se anula: ${ev.titulo}`)
+        },
       },
     ])
   }
@@ -129,9 +162,16 @@ export default function Entrenamientos() {
               </View>
 
               <Pressable
-                onPress={() =>
+                onPress={() => {
                   void actualizarEntrenamiento(equipoActivo.id, x.id, { activo: !x.activo })
-                }
+                  // Para el equipo esto no es «ocultar una fila»: es que ese
+                  // día se suspende el entrenamiento, o que vuelve.
+                  avisar(
+                    x.activo
+                      ? `Se suspende el entrenamiento de los ${DIAS[x.dia].toLowerCase()} (${x.inicio}–${x.fin})`
+                      : `Vuelve el entrenamiento de los ${DIAS[x.dia].toLowerCase()} (${x.inicio}–${x.fin})`,
+                  )
+                }}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={x.activo ? 'Desactivar' : 'Activar'}
@@ -158,7 +198,7 @@ export default function Entrenamientos() {
         )}
       </View>
 
-      <NuevoEntrenamiento equipoId={equipoActivo.id} />
+      <NuevoEntrenamiento equipoId={equipoActivo.id} alAvisar={avisar} />
 
       <Franja titulo="Citas sueltas" />
       <Secundario>
@@ -195,14 +235,20 @@ export default function Entrenamientos() {
         )}
       </View>
 
-      <NuevaCita equipoId={equipoActivo.id} />
+      <NuevaCita equipoId={equipoActivo.id} alAvisar={avisar} />
     </Pantalla>
   )
 }
 
 // --- alta de entrenamiento ------------------------------------------------
 
-function NuevoEntrenamiento({ equipoId }: { equipoId: string }) {
+function NuevoEntrenamiento({
+  equipoId,
+  alAvisar,
+}: {
+  equipoId: string
+  alAvisar: (detalle: string) => void
+}) {
   const [abierto, setAbierto] = useState(false)
   const [dia, setDia] = useState<DiaSemana>(1)
   const [inicio, setInicio] = useState<Date | null>(null)
@@ -227,6 +273,9 @@ function NuevoEntrenamiento({ equipoId }: { equipoId: string }) {
         notas: notas.trim(),
         activo: true,
       })
+      alAvisar(
+        `Nuevo entrenamiento los ${DIAS[dia].toLowerCase()} de ${hora(inicio!)} a ${hora(fin!)}`,
+      )
       setInicio(null)
       setFin(null)
       setNotas("")
@@ -310,7 +359,13 @@ function NuevoEntrenamiento({ equipoId }: { equipoId: string }) {
 
 // --- alta de cita ---------------------------------------------------------
 
-function NuevaCita({ equipoId }: { equipoId: string }) {
+function NuevaCita({
+  equipoId,
+  alAvisar,
+}: {
+  equipoId: string
+  alAvisar: (detalle: string) => void
+}) {
   const [abierto, setAbierto] = useState(false)
   const [titulo, setTitulo] = useState("")
   /* Una sola fecha con su hora dentro, y dos selectores que la tocan.
@@ -356,6 +411,7 @@ function NuevaCita({ equipoId }: { equipoId: string }) {
         notas: "",
         convocados: [],
       })
+      alAvisar(`${titulo.trim()} — ${fechaLarga(cuando!)} a las ${hora(cuando!)}`)
       setTitulo("")
       setCuando(null)
       setLugar(SEDE_CLUB)

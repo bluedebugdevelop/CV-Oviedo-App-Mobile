@@ -15,7 +15,7 @@
 // ==========================================================================
 
 import { Ionicons } from '@expo/vector-icons'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { CampoImagen } from '../../../componentes/CampoImagen'
@@ -32,6 +32,10 @@ import {
   Vacio,
 } from '../../../componentes/ui'
 import { usePanel } from '../../../contexto/panel'
+import { useSesion } from '../../../contexto/sesion'
+import { avisarNoticia } from '../../../lib/firebase/notificar'
+import type { Usuario } from '../../../lib/firebase/modelo'
+import { escucharTodosLosUsuarios } from '../../../lib/firebase/usuarios'
 import { fechaDeHoy, slugificar, useListaEditable } from '../../../lib/listaEditable'
 import type { Noticia } from '../../../lib/web/contenido'
 import { color, espacio, radio } from '../../../tema'
@@ -52,8 +56,58 @@ const nuevaNoticia = (): Noticia => ({
 
 export default function NoticiasPanel() {
   const { datos, guardar, subir } = usePanel()
+  const { perfil } = useSesion()
   const lista = useListaEditable<Noticia>(datos?.noticias, (x) => guardar('noticias', x))
   const [abierta, setAbierta] = useState<number | null>(null)
+
+  /* El censo entero, para los tokens.
+
+     Una noticia del club no va a un equipo: va a todo el mundo. Solo un
+     admin puede leer esta lista, y solo un admin llega a esta pantalla; las
+     reglas lo garantizan por su cuenta. */
+  const [todos, setTodos] = useState<Usuario[]>([])
+  useEffect(() => escucharTodosLosUsuarios(setTodos), [])
+
+  /**
+   * Publica y, si hay noticias NUEVAS, ofrece avisar al club.
+   *
+   * Se comparan los ids contra los que había antes de guardar en vez de
+   * avisar en cada publicación. El panel manda SIEMPRE la lista entera, así
+   * que corregir una errata o mover una noticia de sitio también es un
+   * «publicar»: sin esta comparación, el club recibiría una notificación
+   * cada vez que alguien arregla una tilde.
+   *
+   * Y se pregunta en vez de mandarlo solo: una noticia puede publicarse a
+   * medias, para dejarla lista y revisarla luego.
+   */
+  async function publicar() {
+    const antes = new Set((datos?.noticias ?? []).map((n) => n.id))
+
+    if (!(await lista.guardar())) return
+
+    const nuevas = lista.elementos.filter((n) => !antes.has(n.id) && n.titulo.trim())
+    if (nuevas.length === 0 || !perfil) return
+
+    const cuantos = todos.filter((u) => u.activo && u.uid !== perfil.uid).length
+
+    Alert.alert(
+      nuevas.length === 1 ? 'Avisar al club' : `Avisar de ${nuevas.length} noticias`,
+      nuevas.length === 1
+        ? `¿Mandamos una notificación a las ${cuantos} personas del club por «${nuevas[0].titulo}»?`
+        : `¿Mandamos una notificación a las ${cuantos} personas del club?`,
+      [
+        { text: 'Ahora no', style: 'cancel' },
+        {
+          text: 'Avisar',
+          onPress: () => {
+            for (const n of nuevas) {
+              void avisarNoticia(todos, perfil.uid, { titulo: n.titulo, resumen: n.resumen })
+            }
+          },
+        },
+      ],
+    )
+  }
 
   function borrar(i: number) {
     Alert.alert('Quitar noticia', `«${lista.elementos[i].titulo || 'sin título'}»`, [
@@ -86,7 +140,7 @@ export default function NoticiasPanel() {
       {lista.sucio ? (
         <BarraPublicar
           guardando={lista.guardando}
-          alPublicar={() => void lista.guardar()}
+          alPublicar={() => void publicar()}
           alDescartar={lista.descartar}
         />
       ) : null}

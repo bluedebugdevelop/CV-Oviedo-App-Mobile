@@ -43,7 +43,9 @@
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO"
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.CAMERA",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ],
       "googleServicesFile": "./google-services.json"
     },
@@ -78,7 +80,8 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "./plugins/memoria-gradle"
+      "./plugins/memoria-gradle",
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true

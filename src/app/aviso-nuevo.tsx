@@ -25,7 +25,7 @@ import { mandaAqui, useSesion } from '../contexto/sesion'
 import { crearAviso } from '../lib/firebase/avisos'
 import { TIPOS_AVISO, type TipoAviso, type Usuario } from '../lib/firebase/modelo'
 import { escucharUsuariosDeEquipo } from '../lib/firebase/usuarios'
-import { enviarPush } from '../lib/push'
+import { avisarAviso } from '../lib/firebase/notificar'
 import { color, espacio } from '../tema'
 
 export default function AvisoNuevo() {
@@ -75,12 +75,14 @@ export default function AvisoNuevo() {
       )
 
       // A partir de aquí el aviso ya está dado. Lo del push es un extra.
-      const tokens = destinatarios.flatMap((x) => x.tokensPush)
-      const entregados = await enviarPush(tokens, {
-        titulo: `${equipoActivo!.nombre}: ${titulo.trim()}`,
-        cuerpo: cuerpo.trim() || 'Nuevo aviso de tu entrenador',
-        datos: { equipoId: equipoActivo!.id, tipo: 'aviso' },
-      })
+      // Quién recibe y con qué texto lo decide firebase/notificar.ts, que es
+      // el único sitio de la app que habla con Expo Push.
+      const entregados = await avisarAviso(
+        equipoActivo!,
+        plantilla,
+        perfil!,
+        { titulo: titulo.trim(), cuerpo: cuerpo.trim() },
+      )
 
       router.back()
       Alert.alert(

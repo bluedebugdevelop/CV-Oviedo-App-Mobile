@@ -210,6 +210,36 @@ Dos capas que conviene no confundir:
 - **El aviso del sistema** (el que suena con la app cerrada) va por Expo Push y
   necesita permiso, móvil de verdad y una build de desarrollo o de tienda.
 
+### Qué dispara cada notificación
+
+| Cuándo | Quién la manda | Canal de Android |
+|---|---|---|
+| Mensaje en el chat del equipo | el móvil de quien escribe | Chat del equipo |
+| Aviso del entrenador | el móvil del entrenador | Avisos del entrenador |
+| Cambio de horario o cita nueva | el móvil del entrenador | Horarios y partidos |
+| Noticia nueva del club | el móvil del admin, previa confirmación | Noticias del club |
+| Cambio en el calendario federado | **el propio móvil**, al detectarlo | Horarios y partidos |
+
+Los cuatro primeros los provoca alguien y se envían desde su dispositivo por
+Expo Push (ver `lib/firebase/notificar.ts`). El quinto no lo provoca nadie: los
+partidos vienen de la FVBPA y la RFEVB, y cuando la federación mueve uno nadie
+toca la app.
+
+Sin servidor, la única forma honesta de enterarse es que cada móvil compruebe
+de vez en cuando y se compare con lo que vio la última vez. Eso hace
+`tareas/calendario.ts`, y la notificación que sale es **local**. Conviene saber
+lo que eso NO es: Android suele ejecutarlo cada pocas horas, iOS decide por su
+cuenta y puede tardar un día. Es un extra sobre mirar la app, no un sustituto.
+
+Que haya cuatro canales de Android y no uno es a propósito: el sistema deja
+silenciarlos por separado, así que quien no quiera el pitido de cada mensaje
+puede callarlo sin perderse una convocatoria.
+
+Dos detalles que se notan al usarla: el chat que tienes abierto no suena (ver
+`lib/foco.ts`), y las noticias solo avisan de las **nuevas** — el panel manda
+la lista entera en cada publicación, así que sin esa comparación el club
+recibiría una notificación cada vez que alguien corrige una tilde.
+
 ### Los dos ficheros de Firebase que se confunden
 
 Configurar el push falla casi siempre por dar uno donde va el otro:

@@ -42,6 +42,11 @@ import { escucharEquiposPorId } from '../lib/firebase/equipos'
 import { escucharUsuario, guardarTokenPush } from '../lib/firebase/usuarios'
 import type { Equipo, Usuario } from '../lib/firebase/modelo'
 import { registrarParaPush } from '../lib/push'
+import {
+  olvidarVigilancia,
+  ponerEquiposVigilados,
+} from '../lib/vigilanciaCalendario'
+import { dejarDeVigilar, vigilarCalendario } from '../tareas/calendario'
 
 type Estado = 'arrancando' | 'fuera' | 'dentro'
 
@@ -78,6 +83,11 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   const pushHecho = useRef(false)
 
   const salir = useCallback(async () => {
+    // Se olvida lo apuntado para la vigilancia ANTES de cerrar: si no, la tarea
+    // seguiría mirando los partidos de un equipo que ya no es de nadie en este
+    // móvil, y avisaría a quien entre después.
+    await olvidarVigilancia()
+    await dejarDeVigilar()
     await signOut(auth).catch(() => {})
   }, [])
 
@@ -140,6 +150,30 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   // `escucharEquiposPorId` emite [] y devuelve un corte que no hace nada. Así
   // no hay que vaciar el estado a mano desde el efecto.
   useEffect(() => escucharEquiposPorId(perfil?.equipos ?? [], setEquipos), [perfil])
+
+  /* --- vigilancia del calendario federado ---
+
+     La tarea corre con la app cerrada, donde no hay sesión ni forma de
+     preguntar a Firestore a qué equipos pertenece nadie. Así que se le deja
+     escrita la lista cada vez que cambia, mientras la app SÍ sabe quién es.
+
+     Solo los equipos con competición federada: los demás no tienen
+     calendario que se pueda mover. */
+  useEffect(() => {
+    if (!perfil) return
+
+    const vigilados = equipos
+      .filter((eq) => eq.claveCompeticion && !eq.archivado)
+      .map((eq) => ({ id: eq.id, nombre: eq.nombre, clave: eq.claveCompeticion! }))
+
+    void (async () => {
+      await ponerEquiposVigilados(vigilados)
+      // Registrar una tarea ya registrada no hace daño, y así se recupera
+      // sola si el sistema la descartó por falta de uso.
+      if (vigilados.length > 0) await vigilarCalendario()
+      else await dejarDeVigilar()
+    })()
+  }, [perfil, equipos])
 
   // --- notificaciones ---
   useEffect(() => {
