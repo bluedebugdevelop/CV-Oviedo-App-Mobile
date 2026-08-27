@@ -336,7 +336,7 @@ Play en `secretos/google-play.json` (ignorado por git).
 
 Ya resuelto en el repositorio:
 
-- Identificador `com.clubvoleiboloviedo.app` en las dos plataformas.
+- Identificador `com.cvoviedo` en las dos plataformas.
 - Iconos, icono adaptativo, monocromo y pantalla de arranque, generados del
   escudo del club con `npm run assets`.
 - Política de privacidad dentro de la app (*Más → Privacidad*).
