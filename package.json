@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/react": "~19.2.2",
     "eas-cli": "^22.0.0",
     "eslint": "^9.0.0",
@@ -59,7 +60,9 @@
     "pruebas:reglas": "firebase emulators:exec --only firestore --project cvo-pruebas \"node --test pruebas/\"",
     "reglas:desplegar": "firebase deploy --only firestore:rules,firestore:indexes",
     "apk": "cd android && gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64",
-    "nativo": "expo prebuild --platform android --clean"
+    "nativo": "expo prebuild --platform android --clean",
+    "tienda": "node scripts/tienda.mjs",
+    "tienda:textos": "node scripts/textos-tienda.mjs"
   },
   "private": true
 }

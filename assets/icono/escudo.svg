@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Club Voleibol Oviedo">
+  <title>Club Voleibol Oviedo</title>
+
+  <defs>
+    <!-- circunferencia guia para el texto (sentido horario, 0% = 9 en punto) -->
+    <path id="cvo-ring" fill="none"
+          d="M 256 256 m -182 0 a 182 182 0 1 1 364 0 a 182 182 0 1 1 -364 0"/>
+
+    <clipPath id="cvo-disc">
+      <circle cx="256" cy="256" r="167"/>
+    </clipPath>
+
+    <radialGradient id="cvo-ball" cx="34%" cy="28%" r="80%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="60%"  stop-color="#e2e7ec"/>
+      <stop offset="100%" stop-color="#a8b1b9"/>
+    </radialGradient>
+
+    <!-- balon de voleibol: banda frontal de costuras verticales + banda cruzada
+         vista de canto abajo-izquierda. Calcado del balon del escudo original. -->
+    <g id="cvo-balon">
+      <circle r="18" fill="url(#cvo-ball)" stroke="#111111" stroke-width="2"/>
+      <g fill="none" stroke="#111111" stroke-width="1.5" stroke-linecap="round">
+        <path d="M -6.5 -16.8 A 26 26 0 0 0 -11.5 13.9"/>
+        <path d="M 2 -17.9 A 26 26 0 0 0 -2 17.9"/>
+        <path d="M 10.5 -14.6 A 26 26 0 0 0 8.5 15.9"/>
+        <path d="M -17.9 -2 A 26 26 0 0 0 -9 15.6"/>
+        <path d="M -17.4 4.6 A 20 20 0 0 0 -4 17.5"/>
+      </g>
+    </g>
+  </defs>
+
+  <!-- ============ ANILLOS ============ -->
+  <circle cx="256" cy="256" r="234" fill="#ffffff"/>
+  <circle cx="256" cy="256" r="231" fill="none" stroke="#111111" stroke-width="5"/>
+  <circle cx="256" cy="256" r="201" fill="none" stroke="#FFE800" stroke-width="55"/>
+  <circle cx="256" cy="256" r="171" fill="none" stroke="#111111" stroke-width="5"/>
+
+  <!-- ============ DISCO INTERIOR + PISTA ============ -->
+  <circle cx="256" cy="256" r="167" fill="#00DCF5"/>
+
+  <g clip-path="url(#cvo-disc)">
+    <!-- pista en perspectiva -->
+    <polygon points="196,150 316,150 366,368 146,368" fill="#FF7A21"/>
+    <!-- lineas de la pista -->
+    <g fill="#ffffff">
+      <polygon points="212,186 300,186 303,193 209,193"/>
+      <polygon points="224,240 288,240 294,249 218,249"/>
+      <polygon points="212,292 300,292 309,302 203,302"/>
+      <polygon points="199,346 313,346 324,357 188,357"/>
+    </g>
+    <!-- red -->
+    <g>
+      <rect x="150" y="172" width="212" height="28" fill="#ffffff" stroke="#111111" stroke-width="2.5"/>
+      <rect x="143" y="160" width="14" height="52" fill="#ffffff" stroke="#111111" stroke-width="2.5"/>
+      <rect x="355" y="160" width="14" height="52" fill="#ffffff" stroke="#111111" stroke-width="2.5"/>
+    </g>
+  </g>
+
+  <!-- ============ MONOGRAMA C V O ============ -->
+  <g clip-path="url(#cvo-disc)">
+    <!-- halo blanco -->
+    <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 192.5 153.3 A 34 129 0 1 0 192.5 364.7" stroke-width="20"/>
+      <ellipse cx="360" cy="257" rx="23" ry="129" stroke-width="19"/>
+    </g>
+    <path d="M198,89 H252 V103 H240 L262,388 L293,103 H281 V89 H320 V103 H309 L274,418 H256 L206,103 H198 Z"
+          fill="#ffffff" stroke="#ffffff" stroke-width="7" stroke-linejoin="round"/>
+
+    <!-- trazo negro -->
+    <g fill="none" stroke="#111111" stroke-linecap="round">
+      <path d="M 192.5 153.3 A 34 129 0 1 0 192.5 364.7" stroke-width="13"/>
+      <ellipse cx="360" cy="257" rx="23" ry="129" stroke-width="12"/>
+    </g>
+    <path d="M198,89 H252 V103 H240 L262,388 L293,103 H281 V89 H320 V103 H309 L274,418 H256 L206,103 H198 Z"
+          fill="#111111"/>
+  </g>
+
+  <!-- ============ BALONES SEPARADORES ============
+       Posiciones medidas sobre el escudo original: 204deg, 336deg y 90deg,
+       a r=203. Quedan centrados en el hueco entre palabra y palabra. -->
+  <use href="#cvo-balon" x="70.6"  y="173.4"/>
+  <use href="#cvo-balon" x="441.4" y="173.4"/>
+  <use href="#cvo-balon" x="256"   y="459"/>
+
+  <!-- ============ TEXTO CIRCULAR ============ -->
+  <g fill="#111111"
+     font-family="'Bitter','Roboto Slab',Georgia,'Times New Roman',serif"
+     font-weight="700" font-size="46" letter-spacing="14">
+    <!-- centrados en el punto medio de cada hueco entre balones -->
+    <text><textPath href="#cvo-ring" startOffset="25%"    text-anchor="middle">VOLEIBOL</textPath></text>
+    <text><textPath href="#cvo-ring" startOffset="59.2%"  text-anchor="middle">OVIEDO</textPath></text>
+    <text><textPath href="#cvo-ring" startOffset="90.8%"  text-anchor="middle">CLUB</textPath></text>
+  </g>
+</svg>

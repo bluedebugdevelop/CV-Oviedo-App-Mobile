@@ -72,3 +72,7 @@ firebase-debug.log
 # poder enviar las notificaciones. Esa sí abre la puerta al proyecto entero.
 firebase-adminsdk*.json
 *-firebase-adminsdk-*.json
+
+# Materiales de la ficha de las tiendas: los PNG se regeneran con
+# `npm run tienda`. La descripción es texto escrito a mano y sí va al repo.
+/tienda/*.png
