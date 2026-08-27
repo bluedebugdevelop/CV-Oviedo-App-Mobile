@@ -37,7 +37,11 @@ import {
   type Equipo,
   type Genero,
 } from '../../lib/firebase/modelo'
-import { cargarIndiceCompeticion, type ResumenCompeticion } from '../../lib/web/competicion'
+import {
+  cargarIndiceCompeticion,
+  nombresSugeridos,
+  type ResumenCompeticion,
+} from '../../lib/web/competicion'
 import { color, espacio, radio } from '../../tema'
 
 export default function AdminEquipos() {
@@ -67,6 +71,12 @@ export default function AdminEquipos() {
         alPulsar: () => setCreando((v) => !v),
       }}
     >
+      {/* Lo primero: cuadrar con la web. Crear los equipos a mano uno a uno
+          era teclear doce veces algo que ya está publicado, y bastaba con
+          equivocarse al elegir la competición para que un equipo se quedara
+          sin calendario. */}
+      <EquiposDeLaWeb equipos={equipos} creadoPor={perfil!.uid} />
+
       {creando ? (
         <FormularioEquipo
           creadoPor={perfil!.uid}
@@ -112,6 +122,149 @@ export default function AdminEquipos() {
       )}
     </Pantalla>
   )
+}
+
+/**
+ * Crear de golpe los equipos que compiten, tal y como salen en la web.
+ *
+ * Los doce equipos federados del club ya están definidos en un sitio: el
+ * calendario que scrapea la web. Volver a escribirlos a mano en la app era
+ * trabajo repetido y, peor, una forma fácil de acabar con un equipo mal
+ * enlazado y por tanto sin calendario ni clasificación.
+ *
+ * Se comparan por `claveCompeticion`, no por nombre: el nombre lo puede
+ * cambiar el club cuando quiera y esto tiene que seguir sabiendo cuáles ya
+ * están. Y solo CREA los que faltan — nunca toca los que ya existen, para no
+ * pisar un nombre que alguien haya ajustado a mano.
+ */
+function EquiposDeLaWeb({
+  equipos,
+  creadoPor,
+}: {
+  equipos: Equipo[]
+  creadoPor: string
+}) {
+  const [competiciones, setCompeticiones] = useState<ResumenCompeticion[]>([])
+  const [fallo, setFallo] = useState<string | null>(null)
+  const [creando, setCreando] = useState(false)
+  const [hecho, setHecho] = useState<number | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    void cargarIndiceCompeticion()
+      .then((r) => vivo && setCompeticiones(r.equipos))
+      .catch((e) => vivo && setFallo(e?.message ?? 'No se pudo consultar la web.'))
+    return () => {
+      vivo = false
+    }
+  }, [])
+
+  const yaEstan = useMemo(
+    () => new Set(equipos.map((x) => x.claveCompeticion).filter(Boolean) as string[]),
+    [equipos],
+  )
+  const faltan = competiciones.filter((c) => !yaEstan.has(c.clave))
+
+  async function crearLosQueFaltan() {
+    if (creando || faltan.length === 0) return
+    setCreando(true)
+    setFallo(null)
+
+    const nombres = nombresSugeridos(
+      competiciones.map((c) => ({
+        clave: c.clave,
+        categoria: c.categoria,
+        genero: c.genero,
+        division: c.division,
+        // El índice no trae `equipoClub`; sin él no hay letra y los que la
+        // necesiten se distinguirán por la división, que también vale.
+        equipoClub: '',
+      })),
+    )
+
+    let creados = 0
+    try {
+      for (const c of faltan) {
+        await crearEquipo(
+          {
+            nombre: nombres[c.clave] ?? `${c.categoria} ${c.genero}`,
+            categoria: c.categoria,
+            genero: generoDe(c.genero),
+            temporada: temporadaActual(),
+            claveCompeticion: c.clave,
+          },
+          creadoPor,
+        )
+        creados++
+      }
+      setHecho(creados)
+    } catch (e: any) {
+      // Los ya creados se quedan: volver a pulsar continúa por donde iba.
+      setFallo(`Se crearon ${creados} y falló el siguiente: ${e?.message ?? 'error'}`)
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  if (fallo && competiciones.length === 0) {
+    return (
+      <Banda tono="ojo">
+        No se pudo consultar los equipos de la web ({fallo}). Puedes crearlos a mano.
+      </Banda>
+    )
+  }
+
+  if (competiciones.length === 0) return null
+
+  return (
+    <Tarjeta style={e.sincro}>
+      <View style={e.sincroFila}>
+        <View style={e.sincroIcono}>
+          <Ionicons name="git-compare-outline" size={20} color={color.azul} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={e.sincroTitulo}>Equipos de la web</Text>
+          <Text style={e.meta}>
+            {competiciones.length - faltan.length} de {competiciones.length} creados en la app
+          </Text>
+        </View>
+      </View>
+
+      {fallo ? <Banda tono="error">{fallo}</Banda> : null}
+
+      {faltan.length === 0 ? (
+        <Banda tono="exito">
+          Están todos. Cada uno con su calendario, resultados y clasificación.
+        </Banda>
+      ) : (
+        <>
+          <Secundario>
+            Faltan {faltan.length}: {faltan.map((c) => `${c.categoria} ${c.genero}`).join(", ")}.
+            Se crean enlazados a su competición, así que traen el calendario puesto.
+          </Secundario>
+          <Boton
+            icono="download-outline"
+            ancho
+            cargando={creando}
+            style={{ marginTop: espacio.md }}
+            onPress={crearLosQueFaltan}
+          >
+            Crear los {faltan.length} que faltan
+          </Boton>
+        </>
+      )}
+
+      {hecho ? <Banda tono="exito">Creados {hecho}. Ya puedes asignarles gente.</Banda> : null}
+    </Tarjeta>
+  )
+}
+
+/** Lo que dicen las federaciones, en los tres valores que usa el modelo. */
+function generoDe(texto: string): Genero {
+  const g = texto.trim().toLowerCase()
+  if (g.startsWith('masc')) return 'Masculino'
+  if (g.startsWith('fem')) return 'Femenino'
+  return 'Mixto'
 }
 
 function TarjetaEquipo({ equipo }: { equipo: Equipo }) {
@@ -322,6 +475,18 @@ function OpcionCompeticion({
 
 const e = StyleSheet.create({
   fila: { flexDirection: 'row', alignItems: 'center', gap: espacio.md },
+
+  sincro: { marginBottom: espacio.lg, gap: espacio.md },
+  sincroFila: { flexDirection: 'row', alignItems: 'center', gap: espacio.md },
+  sincroIcono: {
+    width: 40,
+    height: 40,
+    borderRadius: radio.md,
+    backgroundColor: color.tinte,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sincroTitulo: { fontSize: 16, fontWeight: '800', color: color.tinta },
   nombre: { fontSize: 16.5, fontWeight: '700', color: color.tinta },
   meta: { fontSize: 12.5, color: color.apagado, lineHeight: 18 },
   etiquetas: { flexDirection: 'row', flexWrap: 'wrap', gap: espacio.sm, marginTop: 2 },

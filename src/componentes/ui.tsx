@@ -213,6 +213,57 @@ export function Pildoras<T extends string>({
   )
 }
 
+/**
+ * Control segmentado: unas pocas opciones que se excluyen entre sí.
+ *
+ * Sustituye a la fila de pastillas sueltas, que parecían botones flotando
+ * sobre el fondo. Aquí las opciones comparten un carril y la elegida se
+ * levanta sobre él — el mismo patrón que usan iOS y Material, y que se lee de
+ * un vistazo como «esto es UN control con varias posiciones» en vez de como
+ * varios botones sin relación.
+ *
+ * Para tres o cuatro opciones. Con más no caben sin cortar el texto: ahí
+ * sigue valiendo `Pildoras`, que sí desplaza en horizontal.
+ */
+export function Segmentado<T extends string>({
+  opciones,
+  valor,
+  alElegir,
+  etiqueta,
+}: {
+  opciones: { valor: T; etiqueta: string }[]
+  valor: T
+  alElegir: (v: T) => void
+  etiqueta?: string
+}) {
+  return (
+    <View style={etiqueta ? e.campo : undefined}>
+      {etiqueta ? <Text style={e.campoEtiqueta}>{etiqueta}</Text> : null}
+      <View style={e.carril} accessibilityRole="tablist">
+        {opciones.map((o) => {
+          const activa = o.valor === valor
+          return (
+            <Pressable
+              key={o.valor}
+              onPress={() => alElegir(o.valor)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activa }}
+              style={[e.segmento, activa ? e.segmentoActivo : null]}
+            >
+              <Text
+                style={[e.segmentoTexto, activa ? e.segmentoTextoActivo : null]}
+                numberOfLines={1}
+              >
+                {o.etiqueta}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </View>
+    </View>
+  )
+}
+
 export function Interruptor({
   etiqueta,
   ayuda,
@@ -459,19 +510,47 @@ const e = StyleSheet.create({
   campoAyuda: { fontSize: 12, color: color.apagado, marginTop: espacio.xs },
   campoError: { fontSize: 12, color: color.rojo, marginTop: espacio.xs, fontWeight: '600' },
 
+  carril: {
+    flexDirection: 'row',
+    backgroundColor: color.tinte,
+    borderRadius: radio.md,
+    padding: 3,
+    gap: 3,
+  },
+  segmento: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: espacio.sm,
+    borderRadius: radio.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
+  },
+  segmentoActivo: {
+    backgroundColor: color.blanco,
+    // Sombra muy corta: lo justo para que el segmento elegido se despegue del
+    // carril sin parecer otra vez un botón flotante.
+    shadowColor: '#082139',
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  segmentoTexto: { fontSize: 13.5, fontWeight: '600', color: color.apagado },
+  segmentoTextoActivo: { color: color.tinta, fontWeight: '700' },
+
   pildoras: { gap: espacio.sm, paddingRight: espacio.lg },
   pildora: {
     paddingHorizontal: espacio.lg,
     paddingVertical: espacio.sm,
     borderRadius: radio.pastilla,
-    borderWidth: 1,
-    borderColor: color.linea,
-    backgroundColor: color.blanco,
+    // Sin borde ni fondo blanco: apoyadas en el fondo, no flotando sobre él.
+    backgroundColor: color.tinte,
     minHeight: 38,
     justifyContent: 'center',
   },
-  pildoraActiva: { backgroundColor: color.azul, borderColor: color.azul },
-  pildoraTexto: { fontSize: 14, fontWeight: '600', color: color.apagado },
+  pildoraActiva: { backgroundColor: color.azul },
+  pildoraTexto: { fontSize: 14, fontWeight: '600', color: color.azulOscuro },
   pildoraTextoActivo: { color: color.blanco },
 
   interruptor: {

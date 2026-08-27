@@ -13,7 +13,8 @@
 // ==========================================================================
 
 import { Ionicons } from '@expo/vector-icons'
-import { router } from 'expo-router'
+import { Image } from 'expo-image'
+import { router, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import type { ReactNode } from 'react'
 import {
@@ -59,6 +60,18 @@ export function Pantalla({
 }: Props) {
   const bordes = useSafeAreaInsets()
 
+  /* ¿Estamos en una de las cinco pestañas?
+
+     Importa para el hueco de abajo: en una pestaña, la barra de navegación ya
+     ocupa el borde seguro, y volver a reservarlo dejaba un vacío enorme entre
+     el contenido y la barra. Fuera de las pestañas —administración, horarios,
+     una noticia— no hay barra y el inset sí hace falta, o el último botón cae
+     bajo la barra de gestos del móvil.
+
+     Se mira el segmento de la ruta, que es API pública de expo-router, en vez
+     del contexto interno de React Navigation. */
+  const enPestanas = useSegments()[0] === '(app)'
+
   const cabecera = (
     <View style={[e.cabecera, { paddingTop: bordes.top + espacio.md }]}>
       <View style={e.cabeceraFila}>
@@ -92,23 +105,38 @@ export function Pantalla({
             <Ionicons name={accion.icono} size={21} color={color.azul} />
           </Pressable>
         ) : null}
+
+        {/* El escudo, a la derecha del todo.
+
+            Es lo que hace que cualquier pantalla se lea como «del club» sin
+            tener que repetir el nombre. Va después de la acción para que el
+            botón quede siempre en el mismo sitio, se pinte el escudo o no.
+
+            Decorativo a efectos de accesibilidad: quien usa un lector de
+            pantalla ya sabe en qué app está, y anunciarlo en cada pantalla
+            sería ruido. */}
+        <Image
+          source={require('../../assets/icono/splash.png')}
+          style={e.escudo}
+          contentFit="contain"
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
       </View>
     </View>
   )
 
-  /* El hueco de abajo tiene que dejar sitio a la barra de gestos.
+  /* El hueco de abajo, justo el que hace falta.
 
-     Sin esto, en cualquier pantalla que no sea una pestaña —administración,
-     horarios, una noticia— el último botón queda debajo de la barra del
-     sistema y no se puede pulsar.
+     Antes se sumaba el inset SIEMPRE, también en las pestañas, donde la
+     barra de navegación ya lo ocupa. Eso dejaba casi 80 px de vacío entre el
+     último elemento y la barra: se veía raro en todas las vistas.
 
-     En las pestañas el inset ya lo consume la barra de abajo, así que aquí
-     sobra: son unos 24 px de scroll de más al final, que no molestan. Se
-     prefiere eso a leer el contexto interno de expo-router para distinguir
-     los dos casos. */
+     Ahora: en pestañas basta un respiro, y fuera de ellas se reserva el
+     borde seguro porque no hay nada debajo que lo cubra. */
   const relleno = {
     padding: sinMargen ? 0 : espacio.lg,
-    paddingBottom: espacio.xxl + bordes.bottom,
+    paddingBottom: enPestanas ? espacio.lg : espacio.lg + bordes.bottom,
   }
 
   return (
@@ -165,6 +193,7 @@ const e = StyleSheet.create({
     borderBottomColor: color.linea,
   },
   cabeceraFila: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm },
+  escudo: { width: 36, height: 36, marginLeft: espacio.xs },
   iconoCabecera: {
     width: 38,
     height: 38,

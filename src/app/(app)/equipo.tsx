@@ -17,7 +17,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { Pantalla } from '../../componentes/Pantalla'
 import { SelectorEquipo } from '../../componentes/SelectorEquipo'
@@ -27,6 +27,7 @@ import {
   Cargando,
   Etiqueta,
   Secundario,
+  Segmentado,
   Tarjeta,
   Vacio,
 } from '../../componentes/ui'
@@ -110,28 +111,11 @@ export default function MiEquipo() {
     >
       <SelectorEquipo />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={e.pestanas}
-      >
-        {VISTAS.map((v) => {
-          const activa = v.valor === vista
-          return (
-            <Pressable
-              key={v.valor}
-              onPress={() => setVista(v.valor)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activa }}
-              style={[e.pestana, activa ? e.pestanaActiva : null]}
-            >
-              <Text style={[e.pestanaTexto, activa ? e.pestanaTextoActivo : null]}>
-                {v.etiqueta}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </ScrollView>
+      {/* Un control segmentado en vez de cuatro pastillas sueltas: las cuatro
+          vistas son del mismo equipo y se leen mejor como un único control. */}
+      <View style={e.selectorVistas}>
+        <Segmentado opciones={VISTAS} valor={vista} alElegir={setVista} />
+      </View>
 
       {vista === 'partidos' ? (
         <Partidos competicion={competicion} eventos={eventos} />
@@ -510,20 +494,7 @@ function Plantilla({ gente, equipo }: { gente: Usuario[]; equipo: Equipo }) {
 }
 
 const e = StyleSheet.create({
-  pestanas: { gap: espacio.sm, paddingBottom: espacio.lg },
-  pestana: {
-    paddingHorizontal: espacio.lg,
-    paddingVertical: espacio.sm,
-    borderRadius: radio.pastilla,
-    backgroundColor: color.blanco,
-    borderWidth: 1,
-    borderColor: color.linea,
-    minHeight: 38,
-    justifyContent: 'center',
-  },
-  pestanaActiva: { backgroundColor: color.azul, borderColor: color.azul },
-  pestanaTexto: { fontSize: 14, fontWeight: '600', color: color.apagado },
-  pestanaTextoActivo: { color: color.blanco },
+  selectorVistas: { marginBottom: espacio.lg },
 
   subtitulo: {
     fontSize: 12,

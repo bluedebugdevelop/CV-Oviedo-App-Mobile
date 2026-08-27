@@ -145,3 +145,56 @@ export function aFecha(iso: string | null | undefined): Date | null {
   if (!m) return null
   return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0))
 }
+
+/**
+ * Cómo se llamaría cada equipo del club en la app.
+ *
+ * Las federaciones nombran COMPETICIONES («Primera División Masculina») y el
+ * club nombra EQUIPOS («Sénior Masculino»). Esto traduce de lo primero a lo
+ * segundo, que es lo que la gente reconoce.
+ *
+ * Tres pasos, y cada uno está por un caso real de estos doce equipos:
+ *
+ *   1. Categoría y género. Cubre a la mayoría: «Cadete Masculino».
+ *   2. La letra, sacada de cómo inscribe el club al equipo («CV OVIEDO A»).
+ *      Es lo que separa al Cadete Femenino A del B.
+ *   3. La división, solo si aún hay empate. Pasa con los dos sénior
+ *      masculinos, que juegan Primera y Segunda: sin esto quedarían con el
+ *      mismo nombre y nadie sabría cuál es cuál.
+ */
+export function nombresSugeridos(
+  competiciones: { clave: string; categoria: string; genero: string; division: string; equipoClub: string }[],
+): Record<string, string> {
+  const sinTildes = (s: string) =>
+    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+  const letraDe = (equipoClub: string) => {
+    // 'CV OVIEDO A' / 'C.V. OVIEDO B' → 'A' / 'B'. Sin letra, cadena vacía.
+    const m = /\s([AB])$/i.exec(equipoClub.trim())
+    return m ? m[1].toUpperCase() : ''
+  }
+
+  const base = competiciones.map((c) => {
+    const letra = letraDe(c.equipoClub)
+    return {
+      clave: c.clave,
+      nombre: `${c.categoria} ${c.genero}${letra ? ` ${letra}` : ''}`,
+      division: c.division,
+    }
+  })
+
+  // Cuántas veces se repite cada nombre, ignorando tildes: «Sénior» y «Senior»
+  // vienen así de las dos federaciones y son la misma categoría.
+  const cuenta = new Map<string, number>()
+  for (const b of base) {
+    const k = sinTildes(b.nombre)
+    cuenta.set(k, (cuenta.get(k) ?? 0) + 1)
+  }
+
+  const salida: Record<string, string> = {}
+  for (const b of base) {
+    const repetido = (cuenta.get(sinTildes(b.nombre)) ?? 0) > 1
+    salida[b.clave] = repetido ? `${b.nombre} (${b.division})` : b.nombre
+  }
+  return salida
+}

@@ -230,7 +230,20 @@ export const POSICIONES = [
   'Líbero',
 ]
 
+/**
+ * Las categorías del formulario manual.
+ *
+ * Ojo: al crear un equipo desde una competición —que es lo normal, y lo que
+ * hace el botón de «Equipos de la web»— la categoría NO sale de aquí, sino de
+ * lo que diga la federación. Esta lista es solo para los equipos que no
+ * compiten: escuela, veteranos, o un equipo nuevo antes de inscribirlo.
+ *
+ * «Competición nacional» está porque es como la web agrupa a los dos equipos de
+ * arriba (Superliga 2 masculina, Primera Nacional femenina), y sin ella no
+ * había forma de nombrarlos igual que en clubvoleiboloviedo.com.
+ */
 export const CATEGORIAS = [
+  'Competición nacional',
   'Sénior',
   'Junior',
   'Juvenil',
@@ -238,6 +251,7 @@ export const CATEGORIAS = [
   'Infantil',
   'Alevín',
   'Benjamín',
+  'Veteranos',
   'Escuela',
 ]
 
