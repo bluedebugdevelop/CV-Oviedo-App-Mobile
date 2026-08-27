@@ -81,7 +81,8 @@
       ],
       "@react-native-community/datetimepicker",
       "./plugins/memoria-gradle",
-      "expo-background-task"
+      "expo-background-task",
+      "./plugins/firma-release"
     ],
     "experiments": {
       "typedRoutes": true
