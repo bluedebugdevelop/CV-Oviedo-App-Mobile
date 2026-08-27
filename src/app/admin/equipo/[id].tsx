@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 
 import { Pantalla } from '../../../componentes/Pantalla'
+import { PublicarPlantilla } from '../../../componentes/PublicarPlantilla'
 import {
   Banda,
   Boton,
@@ -155,6 +156,14 @@ export default function FichaEquipoAdmin() {
       )}
 
       <Anadir equipo={equipo} todos={todos} alFallar={setError} />
+
+      {/* La plantilla de la app pasa a la web, no al revés: las cuentas y los
+          correos se quedan en Firestore y a la web va lo que ve un visitante. */}
+      <PublicarPlantilla
+        equipo={equipo}
+        jugadores={miembros.jugadores}
+        entrenadores={miembros.entrenadores}
+      />
 
       <Franja titulo="Temporada" />
       <Boton

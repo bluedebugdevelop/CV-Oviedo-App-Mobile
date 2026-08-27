@@ -43,6 +43,7 @@ function aEquipo(id: string, datos: any): Equipo {
     genero: (datos?.genero ?? 'Mixto') as Genero,
     temporada: datos?.temporada ?? '',
     claveCompeticion: datos?.claveCompeticion ?? null,
+    slugWeb: datos?.slugWeb ?? null,
     entrenadores: listaLimpia(datos?.entrenadores),
     jugadores: listaLimpia(datos?.jugadores),
     archivado: datos?.archivado === true,
@@ -120,6 +121,8 @@ export async function crearEquipo(datos: NuevoEquipo, creadoPor: string): Promis
   const ref = await addDoc(collection(db, COL), {
     ...datos,
     nombre: datos.nombre.trim(),
+    // Se enlaza a mano desde la ficha del equipo: ver `slugWeb` en modelo.ts.
+    slugWeb: null,
     entrenadores: [],
     jugadores: [],
     archivado: false,

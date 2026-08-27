@@ -139,6 +139,19 @@ export interface Equipo {
    * `null` para los equipos que no compiten federado (escuela, veteranos).
    */
   claveCompeticion: string | null
+  /**
+   * El `slug` de la ficha de la web a la que este equipo publica su plantilla.
+   *
+   * `null` mientras nadie lo haya enlazado. Va aquí y no se adivina por el
+   * nombre porque los dos lados se renombran por su cuenta: el club puede
+   * llamar «Sénior Masculino» al equipo en la app y «Superliga 2 Masculino» a
+   * la ficha de la web, y las dos cosas son correctas.
+   *
+   * Los datos viajan en UN solo sentido, de la app a la web. Las cuentas —y con
+   * ellas los correos— viven solo en Firestore; a la web se manda lo que ve un
+   * visitante: dorsal, nombre y posición.
+   */
+  slugWeb: string | null
   entrenadores: string[]
   jugadores: string[]
   archivado: boolean
