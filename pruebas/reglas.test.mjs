@@ -449,6 +449,30 @@ describe('multirol', () => {
     await assertFails(getDoc(doc(como(ENTRENADOR), 'equipos', AJENO)))
   })
 
+  it('un admin con `rol` en singular puede meterse en un equipo', async () => {
+    /* El caso que se dio en cuanto se usó de verdad.
+
+       Meter a alguien en un equipo escribe DOS documentos: el equipo y la
+       ficha de esa persona (su campo `equipos`). Cuando el admin se añade a
+       sí mismo, ese segundo write pasa por el candado que impide que un
+       admin se quite el rol solo.
+
+       Ese candado leía el estado ANTERIOR con respaldo a `rol` y el
+       POSTERIOR sin él. En una ficha en singular —la primera de admin, la
+       que se crea a mano en la consola— el estado posterior salía como lista
+       vacía de roles, así que la regla concluía que se estaba quitando el
+       admin y bloqueaba CUALQUIER cambio en su propia ficha. */
+    await assertSucceeds(
+      updateDoc(doc(como(LEGADO), 'usuarios', LEGADO), { equipos: [EQUIPO] }),
+    )
+  })
+
+  it('pero sigue sin poder quitarse el admin, aunque su ficha sea antigua', async () => {
+    await assertFails(
+      updateDoc(doc(como(LEGADO), 'usuarios', LEGADO), { roles: ['jugador'] }),
+    )
+  })
+
   it('las fichas con el campo `rol` en singular siguen valiendo', async () => {
     // La primera ficha de admin se crea a mano en la consola con el campo
     // viejo. Si dejara de valer, el club se quedaría sin quien administre.

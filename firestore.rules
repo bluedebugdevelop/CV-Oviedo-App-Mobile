@@ -65,8 +65,19 @@ service cloud.firestore {
        Se usa `.get(clave, defecto)` y no `.clave` a propósito: leer una clave
        que no existe hace fallar la regla entera, y una ficha vieja no tiene
        `roles`. */
+    /* Los roles de un documento de usuario, sea del formato que sea.
+
+       Se lee `roles` y, si no está, se cae a `rol` en singular. Existe como
+       función suelta para poder aplicarla a los DOS lados de una escritura: al
+       estado anterior (`resource.data`) y al posterior
+       (`request.resource.data`). Aplicarla solo a uno fue un error con
+       consecuencias reales, ver el candado de `update` más abajo. */
+    function rolesEn(datos) {
+      return datos.get('roles', [datos.get('rol', '')]);
+    }
+
     function misRoles() {
-      return miDoc().data.get('roles', [miDoc().data.get('rol', '')]);
+      return rolesEn(miDoc().data);
     }
 
     function soyAdmin() {
@@ -131,13 +142,20 @@ service cloud.firestore {
 
       allow update: if (
           soyAdmin()
-          // Un admin no puede quitarse a sí mismo el rol de admin por descuido
-          // y dejar el club sin nadie que administre. Que se lo quite otro.
-          // Sí puede cambiarse los demás —dejar de jugar, por ejemplo—: lo que
-          // se protege es la llave del club, no el resto.
+          /* Un admin no puede quitarse a sí mismo el rol de admin por descuido
+             y dejar el club sin nadie que administre. Que se lo quite otro. Sí
+             puede cambiarse los demás —dejar de jugar, por ejemplo—: lo que se
+             protege es la llave del club, no el resto.
+
+             Las dos lecturas usan `rolesEn`. Antes la de después iba sin
+             respaldo a `rol`, y en una ficha en singular —la primera de admin,
+             la que se crea a mano en la consola— el estado posterior salía sin
+             roles: la regla creía que se estaba quitando el admin y bloqueaba
+             CUALQUIER cambio en su propia ficha. Se notó al intentar añadirse a
+             un equipo, que escribe el campo `equipos` de esa misma ficha. */
           && !(uid == request.auth.uid
-               && 'admin' in resource.data.get('roles', [resource.data.get('rol', '')])
-               && !('admin' in request.resource.data.get('roles', [])))
+               && 'admin' in rolesEn(resource.data)
+               && !('admin' in rolesEn(request.resource.data)))
         ) || (
           // Cada cual apunta el aparato donde tiene la app instalada. Solo eso:
           // sin este `hasOnly`, un jugador podría ascenderse a admin de un
