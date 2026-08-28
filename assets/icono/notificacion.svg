@@ -1,36 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512"
-     role="img" aria-label="CV Oviedo">
-  <title>CV Oviedo — icono de notificación</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="Club Voleibol Oviedo">
+  <title>CV Oviedo — icono pequeño de notificación</title>
 
   <!-- ======================================================================
-       La marca reducida a lo que sobrevive a 24 dp.
+       El escudo, reducido a lo único que Android deja pasar.
 
-       Un icono de notificación se pinta a 24 dp y Android le quita TODO el
-       color: se queda con el alfa y lo rellena con el color de acento. A ese
-       tamaño el escudo entero no vale —el anillo con «CLUB VOLEIBOL OVIEDO» se
-       convierte en ruido— y el monograma de tres letras tampoco: dentro de un
-       cuadrado de 24 px cada letra se queda en 7 px de ancho y las tres se
-       tocan. Se probó, y se veía un borrón azul.
+       El icono PEQUEÑO de una notificación no puede llevar color: el sistema
+       se queda con el canal alfa y lo rellena entero con el color de acento.
+       No es una decisión de diseño, es cómo funciona Android. Así que aquí no
+       hay ni aro amarillo, ni pista naranja, ni balones: solo forma.
 
-       Así que van dos letras, no tres: CV, que además es como se llama la app
-       («CV Oviedo») y lo que pone el gráfico de la ficha de Play. Con dos
-       letras cada una tiene 10 px de ancho y 17 de alto a 24 dp —la altura de
-       la hora de la barra de estado, que se lee sin esfuerzo— y queda entre
-       ellas un hueco de 2,7 px que el antialias no llega a cerrar.
+       De todo el escudo sobreviven las dos cosas que lo identifican a 24 dp:
+       el disco y el monograma CVO calado dentro. Se probaron seis siluetas
+       —aro solo, aro con monograma, aro con la V, disco con la V, aro fino—
+       renderizadas a 24, 32, 48 y 96 px sobre fondo claro y oscuro. El disco
+       lleno gana por goleada: es lo único que a 24 dp no se deshace, porque
+       la tinta es maciza y las letras se leen como huecos, no como trazos.
 
-       Las proporciones son las del escudo: la C es un arco de elipse alta y
-       abierta, la V un trazo en pico. Cambian los gruesos, que aquí van a 12
-       sobre 100 —en el escudo son proporcionalmente la mitad— porque un trazo
-       fino a 24 dp se deshace en antialias hasta desaparecer.
+       El monograma es el mismo del escudo (mismos caminos, misma proporción)
+       pero con los trazos a 66 donde el original lleva 13, y al 78% para que
+       quede disco por los cuatro lados. Con menos grosor las letras se cierran
+       al reducir; con más, se comen el disco.
 
-       Blanco puro sobre transparente: es lo único que Android respeta.
+       El escudo COMPLETO y en color sí aparece en la notificación: va como
+       icono grande, a la derecha de la tarjeta. Ver plugins/icono-grande.js.
        ====================================================================== -->
 
-  <g fill="none" stroke="#ffffff" stroke-width="12"
-     stroke-linecap="round" stroke-linejoin="round">
-    <!-- La C: arco de 260°, abierto a la derecha. -->
-    <path d="M 34.6 24 A 15 34 0 1 0 34.6 76"/>
-    <!-- La V. -->
-    <path d="M 58 16 L 74 84 L 90 16"/>
-  </g>
+  <mask id="cvo-monograma">
+    <circle cx="256" cy="256" r="228" fill="#ffffff"/>
+    <g transform="translate(256 256) scale(0.78) translate(-260 -253)">
+      <g fill="none" stroke="#000000" stroke-linecap="round">
+        <path d="M 192.5 153.3 A 34 129 0 1 0 192.5 364.7" stroke-width="66"/>
+        <ellipse cx="360" cy="257" rx="23" ry="129" stroke-width="59.4"/>
+      </g>
+      <path d="M198,89 H252 V103 H240 L262,388 L293,103 H281 V89 H320 V103 H309 L274,418 H256 L206,103 H198 Z"
+            fill="#000000" stroke="#000000" stroke-width="19.8" stroke-linejoin="round"/>
+    </g>
+  </mask>
+
+  <circle cx="256" cy="256" r="228" fill="#ffffff" mask="url(#cvo-monograma)"/>
 </svg>

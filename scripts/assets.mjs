@@ -7,7 +7,7 @@
 // Las fuentes son dos SVG en `assets/icono/`:
 //
 //   escudo.svg        el escudo completo, el mismo que usa la web
-//   notificacion.svg  la marca reducida a dos letras (ver más abajo)
+//   notificacion.svg  la silueta del escudo, para el icono pequeño
 //
 // POR QUÉ RESVG Y NO EL RENDERIZADOR DE SHARP
 // El escudo lleva «CLUB VOLEIBOL OVIEDO» curvado sobre una circunferencia
@@ -21,10 +21,10 @@
 //   · Android recorta el icono adaptativo a la forma del lanzador (círculo,
 //     cuadrado redondeado, gota…). Solo el 66% central está a salvo, de ahí el
 //     margen extra en la capa de delante.
-//   · El de NOTIFICACIÓN es un activo aparte, no el logo encogido. Android le
-//     quita el color y lo pinta a 24 dp, así que ahí no cabe ni el escudo ni el
-//     monograma de tres letras: van dos. Ver el comentario de
-//     `notificacion.svg`.
+//   · Las NOTIFICACIONES llevan dos piezas distintas. La pequeña —la de la
+//     barra de estado— Android la pinta a 24 dp y sin color, así que es una
+//     silueta: el disco del escudo con el monograma calado. La grande sí sale
+//     en color y es el escudo entero. Ver `notificacion.svg`.
 //
 // Regenerar es idempotente: mismos SVG, mismos ficheros.
 // ==========================================================================
@@ -95,13 +95,22 @@ async function main() {
     ['adaptive-foreground.png', await componer(escudo, 1024, 0.62, null)],
     // Pantalla de arranque: el escudo suelto sobre el azul que pone app.json.
     ['splash.png', await componer(escudo, 1024, 0.62, null)],
-    /* Notificaciones: el monograma, no el escudo.
+    /* Icono pequeño: la silueta, no el escudo en color.
 
        Android se queda solo con el alfa y lo rellena con el color de acento
-       (app.json). Va casi a sangre porque el SVG ya trae su propio margen y la
-       guía de Android pide la tinta dentro de 22 de los 24 dp: encogerlo aquí
-       otra vez es lo que dejaba una mancha diminuta en medio del hueco. */
+       (app.json). Va casi a sangre porque la guía pide la tinta dentro de 22
+       de los 24 dp: encogerlo más es lo que dejaba una mancha en medio del
+       hueco, y con el hueco vacío algunas capas de Android caen de vuelta al
+       icono de la app —el escudo con su aro amarillo— que es de donde salía
+       el amarillo que no venía a cuento. */
     ['notificacion.png', await componer(monograma, 256, 0.92, null)],
+    /* El escudo EN COLOR, para el icono grande de la notificación.
+
+       Este sí sale tal cual, a la derecha de la tarjeta: el icono grande no
+       lo tiñe nadie. Va sobre transparente y al 94% porque hay capas de
+       Android que lo recortan a un círculo, y así el borde negro del escudo
+       no se queda fuera. Lo instala plugins/icono-grande.js. */
+    ['notificacion-grande.png', await componer(escudo, 256, 0.94, null)],
     // Icono monocromo del tema de Android 13+: mismo criterio, más margen.
     ['adaptive-monochrome.png', await componer(monograma, 1024, 0.55, null)],
     // Favicon de la versión web de Expo.

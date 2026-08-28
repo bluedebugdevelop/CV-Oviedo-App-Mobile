@@ -339,6 +339,12 @@ Ya resuelto en el repositorio:
 - Identificador `com.cvoviedo` en las dos plataformas.
 - Iconos, icono adaptativo, monocromo y pantalla de arranque, generados del
   escudo del club con `npm run assets`.
+- Notificaciones con la imagen del club. Llevan dos iconos, porque Android trata
+  cada uno de una forma: el pequeño de la barra de estado lo tiñe entero con el
+  color de acento —así que es una silueta del escudo, disco con el monograma
+  calado— y el grande de la tarjeta sí sale en color y es el escudo completo.
+  Ese segundo lo instala `plugins/icono-grande.js`, porque el plugin de
+  expo-notifications aún no escribe esa meta-data.
 - Política de privacidad dentro de la app (*Más → Privacidad*).
 - Permisos justificados: solo notificaciones y galería, esta última pedida en el
   momento de elegir la foto y con explicación en castellano.
