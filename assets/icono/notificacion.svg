@@ -10,17 +10,25 @@
        No es una decisión de diseño, es cómo funciona Android. Así que aquí no
        hay ni aro amarillo, ni pista naranja, ni balones: solo forma.
 
-       De todo el escudo sobreviven las dos cosas que lo identifican a 24 dp:
-       el disco y el monograma CVO calado dentro. Se probaron seis siluetas
-       —aro solo, aro con monograma, aro con la V, disco con la V, aro fino—
-       renderizadas a 24, 32, 48 y 96 px sobre fondo claro y oscuro. El disco
-       lleno gana por goleada: es lo único que a 24 dp no se deshace, porque
-       la tinta es maciza y las letras se leen como huecos, no como trazos.
+       De todo el escudo sobreviven las dos cosas que lo identifican: el disco
+       y el monograma CVO calado dentro. Se probaron seis siluetas —aro solo,
+       aro con monograma, aro con la V, disco con la V, aro fino— a 24, 32, 48
+       y 96 px sobre fondo claro y oscuro. El disco lleno gana: es lo único que
+       a 24 dp no se deshace, porque la tinta es maciza y las letras se leen
+       como huecos, no como trazos.
 
-       El monograma es el mismo del escudo (mismos caminos, misma proporción)
-       pero con los trazos a 66 donde el original lleva 13, y al 78% para que
-       quede disco por los cuatro lados. Con menos grosor las letras se cierran
-       al reducir; con más, se comen el disco.
+       POR QUÉ LAS LETRAS NO SON LAS DEL ESCUDO
+       En el escudo la C y la V se solapan —la V nace dentro de la C— y la O
+       queda pegada al otro lado. Eso a tamaño grande es la gracia del
+       monograma, pero a 24 dp las tres se funden en una mancha: se leía «CV»
+       porque la O desaparecía contra la V. Así que aquí van separadas, con
+       hueco real entre ellas, y con las formas simplificadas —la V sin sus
+       remates, la O como anillo limpio— porque a este tamaño ese detalle no
+       llega a dibujarse y solo emborrona.
+
+       Los números salen de comparar cinco combinaciones de altura, grosor y
+       separación, renderizadas y miradas a 24 px: con las letras más altas se
+       tocan, con el trazo más fino se lavan.
 
        El escudo COMPLETO y en color sí aparece en la notificación: va como
        icono grande, a la derecha de la tarjeta. Ver plugins/icono-grande.js.
@@ -28,13 +36,14 @@
 
   <mask id="cvo-monograma">
     <circle cx="256" cy="256" r="228" fill="#ffffff"/>
-    <g transform="translate(256 256) scale(0.78) translate(-260 -253)">
-      <g fill="none" stroke="#000000" stroke-linecap="round">
-        <path d="M 192.5 153.3 A 34 129 0 1 0 192.5 364.7" stroke-width="66"/>
-        <ellipse cx="360" cy="257" rx="23" ry="129" stroke-width="59.4"/>
-      </g>
-      <path d="M198,89 H252 V103 H240 L262,388 L293,103 H281 V89 H320 V103 H309 L274,418 H256 L206,103 H198 Z"
-            fill="#000000" stroke="#000000" stroke-width="19.8" stroke-linejoin="round"/>
+    <g fill="none" stroke="#000000" stroke-width="46"
+       stroke-linecap="round" stroke-linejoin="round">
+      <!-- C · arco de elipse abierto por la derecha -->
+      <path d="M 141.9 175.6 A 34 105 0 1 0 141.9 336.4"/>
+      <!-- V -->
+      <path d="M 179.3 151 L 256 361 L 332.7 151"/>
+      <!-- O -->
+      <ellipse cx="392" cy="256" rx="34" ry="105"/>
     </g>
   </mask>
 
