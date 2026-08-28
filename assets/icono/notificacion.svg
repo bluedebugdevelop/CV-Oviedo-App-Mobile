@@ -1,51 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
-     role="img" aria-label="Club Voleibol Oviedo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512"
+     role="img" aria-label="CV Oviedo">
   <title>CV Oviedo — icono pequeño de notificación</title>
 
   <!-- ======================================================================
-       El escudo, reducido a lo único que Android deja pasar.
+       El monograma del club, y solo el monograma.
 
-       El icono PEQUEÑO de una notificación no puede llevar color: el sistema
-       se queda con el canal alfa y lo rellena entero con el color de acento.
-       No es una decisión de diseño, es cómo funciona Android. Así que aquí no
-       hay ni aro amarillo, ni pista naranja, ni balones: solo forma.
+       El icono PEQUEÑO de una notificación no puede llevar color: Android se
+       queda con el canal alfa y lo rellena entero con el color de acento. No
+       es una decisión de diseño, es cómo funciona. Así que del escudo no puede
+       sobrevivir ni el aro amarillo, ni la pista, ni los balones: solo forma.
 
-       De todo el escudo sobreviven las dos cosas que lo identifican: el disco
-       y el monograma CVO calado dentro. Se probaron seis siluetas —aro solo,
-       aro con monograma, aro con la V, disco con la V, aro fino— a 24, 32, 48
-       y 96 px sobre fondo claro y oscuro. El disco lleno gana: es lo único que
-       a 24 dp no se deshace, porque la tinta es maciza y las letras se leen
-       como huecos, no como trazos.
+       Y a 24 dp tampoco sobrevive el escudo entero. Se probó de todo —el aro
+       con el monograma dentro, el disco lleno con las letras caladas, el aro
+       solo— renderizado y mirado a 24, 32, 48 y 96 px sobre claro y oscuro.
+       Todo lo que mete el disco alrededor roba el sitio que necesitan las
+       letras: dentro de 24 px caben tres letras O un disco, no las dos cosas.
+       Con el disco se leía «CV», porque la O se fundía contra la V.
 
-       POR QUÉ LAS LETRAS NO SON LAS DEL ESCUDO
-       En el escudo la C y la V se solapan —la V nace dentro de la C— y la O
-       queda pegada al otro lado. Eso a tamaño grande es la gracia del
-       monograma, pero a 24 dp las tres se funden en una mancha: se leía «CV»
-       porque la O desaparecía contra la V. Así que aquí van separadas, con
-       hueco real entre ellas, y con las formas simplificadas —la V sin sus
-       remates, la O como anillo limpio— porque a este tamaño ese detalle no
-       llega a dibujarse y solo emborrona.
+       Así que van las letras solas, a sangre, con los extremos redondeados.
 
-       Los números salen de comparar cinco combinaciones de altura, grosor y
-       separación, renderizadas y miradas a 24 px: con las letras más altas se
-       tocan, con el trazo más fino se lavan.
+       LOS NÚMEROS
+       Trazo 9 sobre 100, letras de 10 de medio ancho y 34 de media altura. Se
+       compararon cinco combinaciones a 24 px: con el trazo a 10 u 11 el ojo de
+       la O se cierra y vuelve a leerse «CV»; con las letras más anchas se
+       tocan entre ellas. Esta es la que deja el contraojo abierto sin que el
+       trazo se lave.
+
+       Las formas son las del escudo —C y O como elipses altas y estrechas, V
+       en pico— pero simplificadas: sin los remates de la V, que a este tamaño
+       no llegan a dibujarse y solo emborronan.
 
        El escudo COMPLETO y en color sí aparece en la notificación: va como
        icono grande, a la derecha de la tarjeta. Ver plugins/icono-grande.js.
        ====================================================================== -->
 
-  <mask id="cvo-monograma">
-    <circle cx="256" cy="256" r="228" fill="#ffffff"/>
-    <g fill="none" stroke="#000000" stroke-width="46"
-       stroke-linecap="round" stroke-linejoin="round">
-      <!-- C · arco de elipse abierto por la derecha -->
-      <path d="M 141.9 175.6 A 34 105 0 1 0 141.9 336.4"/>
-      <!-- V -->
-      <path d="M 179.3 151 L 256 361 L 332.7 151"/>
-      <!-- O -->
-      <ellipse cx="392" cy="256" rx="34" ry="105"/>
-    </g>
-  </mask>
-
-  <circle cx="256" cy="256" r="228" fill="#ffffff" mask="url(#cvo-monograma)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="9"
+     stroke-linecap="round" stroke-linejoin="round">
+    <!-- C · arco de elipse abierto por la derecha -->
+    <path d="M 24.93 23.95 A 10 34 0 1 0 24.93 76.05"/>
+    <!-- V -->
+    <path d="M 40 16 L 50 84 L 60 16"/>
+    <!-- O -->
+    <ellipse cx="81.5" cy="50" rx="10" ry="34"/>
+  </g>
 </svg>

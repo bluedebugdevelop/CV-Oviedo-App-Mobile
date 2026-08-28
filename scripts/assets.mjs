@@ -7,7 +7,7 @@
 // Las fuentes son dos SVG en `assets/icono/`:
 //
 //   escudo.svg        el escudo completo, el mismo que usa la web
-//   notificacion.svg  la silueta del escudo, para el icono pequeño
+//   notificacion.svg  el monograma CVO suelto, para el icono pequeño
 //
 // POR QUÉ RESVG Y NO EL RENDERIZADOR DE SHARP
 // El escudo lleva «CLUB VOLEIBOL OVIEDO» curvado sobre una circunferencia
@@ -22,9 +22,10 @@
 //     cuadrado redondeado, gota…). Solo el 66% central está a salvo, de ahí el
 //     margen extra en la capa de delante.
 //   · Las NOTIFICACIONES llevan dos piezas distintas. La pequeña —la de la
-//     barra de estado— Android la pinta a 24 dp y sin color, así que es una
-//     silueta: el disco del escudo con el monograma calado. La grande sí sale
-//     en color y es el escudo entero. Ver `notificacion.svg`.
+//     barra de estado— Android la pinta a 24 dp y sin color, así que es el
+//     monograma CVO a secas: a ese tamaño caben las tres letras o un disco
+//     alrededor, no las dos cosas. La grande sí sale en color y es el escudo
+//     entero. Ver `notificacion.svg`.
 //
 // Regenerar es idempotente: mismos SVG, mismos ficheros.
 // ==========================================================================
@@ -95,7 +96,7 @@ async function main() {
     ['adaptive-foreground.png', await componer(escudo, 1024, 0.62, null)],
     // Pantalla de arranque: el escudo suelto sobre el azul que pone app.json.
     ['splash.png', await componer(escudo, 1024, 0.62, null)],
-    /* Icono pequeño: la silueta, no el escudo en color.
+    /* Icono pequeño: el monograma, no el escudo en color.
 
        Android se queda solo con el alfa y lo rellena con el color de acento
        (app.json). Va casi a sangre porque la guía pide la tinta dentro de 22

@@ -341,8 +341,9 @@ Ya resuelto en el repositorio:
   escudo del club con `npm run assets`.
 - Notificaciones con la imagen del club. Llevan dos iconos, porque Android trata
   cada uno de una forma: el pequeño de la barra de estado lo tiñe entero con el
-  color de acento —así que es una silueta del escudo, disco con el monograma
-  calado— y el grande de la tarjeta sí sale en color y es el escudo completo.
+  color de acento —así que es el monograma CVO a secas, porque a 24 dp no caben
+  las tres letras y un disco alrededor— y el grande de la tarjeta sí sale en
+  color y es el escudo completo.
   Ese segundo lo instala `plugins/icono-grande.js`, porque el plugin de
   expo-notifications aún no escribe esa meta-data.
 - Política de privacidad dentro de la app (*Más → Privacidad*).
