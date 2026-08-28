@@ -16,6 +16,17 @@ export const color = {
   azul: '#1560bd', // acentos y botones
   azulOscuro: '#0f4a94',
   azulClaro: '#7cc4f7', // sobre fondo oscuro
+  /* El azul con el que Android tiñe el icono de las notificaciones.
+
+     Un paso más brillante que el de marca a propósito: Android usa UN solo
+     color para la sombra de notificaciones, que puede estar en claro o en
+     oscuro, y `azul` se apagaba demasiado sobre fondo negro. Se compararon
+     los tres tonos del club a 24 y 36 px sobre los dos fondos; este es el
+     único que se lee en ambos.
+
+     Vive también en app.json (plugin de expo-notifications), que es de donde
+     lo saca Android al generar los recursos. Si cambia uno, cambia el otro. */
+  azulAviso: '#2b7fe0',
   tinte: '#eaf2fb', // fondos de sección
 
   // --- neutros ---

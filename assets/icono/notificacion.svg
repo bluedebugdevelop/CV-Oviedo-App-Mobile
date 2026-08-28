@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512"
+     role="img" aria-label="CV Oviedo">
+  <title>CV Oviedo — icono de notificación</title>
+
+  <!-- ======================================================================
+       La marca reducida a lo que sobrevive a 24 dp.
+
+       Un icono de notificación se pinta a 24 dp y Android le quita TODO el
+       color: se queda con el alfa y lo rellena con el color de acento. A ese
+       tamaño el escudo entero no vale —el anillo con «CLUB VOLEIBOL OVIEDO» se
+       convierte en ruido— y el monograma de tres letras tampoco: dentro de un
+       cuadrado de 24 px cada letra se queda en 7 px de ancho y las tres se
+       tocan. Se probó, y se veía un borrón azul.
+
+       Así que van dos letras, no tres: CV, que además es como se llama la app
+       («CV Oviedo») y lo que pone el gráfico de la ficha de Play. Con dos
+       letras cada una tiene 10 px de ancho y 17 de alto a 24 dp —la altura de
+       la hora de la barra de estado, que se lee sin esfuerzo— y queda entre
+       ellas un hueco de 2,7 px que el antialias no llega a cerrar.
+
+       Las proporciones son las del escudo: la C es un arco de elipse alta y
+       abierta, la V un trazo en pico. Cambian los gruesos, que aquí van a 12
+       sobre 100 —en el escudo son proporcionalmente la mitad— porque un trazo
+       fino a 24 dp se deshace en antialias hasta desaparecer.
+
+       Blanco puro sobre transparente: es lo único que Android respeta.
+       ====================================================================== -->
+
+  <g fill="none" stroke="#ffffff" stroke-width="12"
+     stroke-linecap="round" stroke-linejoin="round">
+    <!-- La C: arco de 260°, abierto a la derecha. -->
+    <path d="M 34.6 24 A 15 34 0 1 0 34.6 76"/>
+    <!-- La V. -->
+    <path d="M 58 16 L 74 84 L 90 16"/>
+  </g>
+</svg>

@@ -66,7 +66,7 @@ export async function prepararCanales() {
     description: 'Convocatorias y avisos importantes de tu equipo.',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: color.azul,
+    lightColor: color.azulAviso,
   })
 
   await Notifications.setNotificationChannelAsync(CANALES.chat, {
@@ -74,7 +74,7 @@ export async function prepararCanales() {
     description: 'Mensajes nuevos en el chat de tus equipos.',
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 120],
-    lightColor: color.azul,
+    lightColor: color.azulAviso,
   })
 
   await Notifications.setNotificationChannelAsync(CANALES.calendario, {
@@ -82,14 +82,14 @@ export async function prepararCanales() {
     description: 'Cambios de hora o de sede en los partidos y entrenamientos.',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: color.azul,
+    lightColor: color.azulAviso,
   })
 
   await Notifications.setNotificationChannelAsync(CANALES.club, {
     name: 'Noticias del club',
     description: 'Lo que publica el club en su web.',
     importance: Notifications.AndroidImportance.DEFAULT,
-    lightColor: color.azul,
+    lightColor: color.azulAviso,
   })
 }
 

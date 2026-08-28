@@ -4,53 +4,66 @@
 //
 //   npm run assets
 //
-// La fuente es `assets/icono/escudo.png`, el mismo fichero que usa la web
-// (public/media/escudo.png). Se copia aquí a propósito en vez de leerlo del
-// otro repo: la app tiene que poder compilar sin CVOWeb al lado.
+// Las fuentes son dos SVG en `assets/icono/`:
 //
-// Cada tienda quiere el icono de una forma distinta y ninguna admite el PNG
-// tal cual:
+//   escudo.svg        el escudo completo, el mismo que usa la web
+//   notificacion.svg  la marca reducida a dos letras (ver más abajo)
 //
-//   · iOS no deja transparencia. Un icono con alfa se ve con el fondo negro
-//     en el dispositivo, así que va aplanado sobre blanco.
-//   · Android recorta el icono adaptativo a la forma que tenga el lanzador
-//     (círculo, cuadrado redondeado, gota...). Solo el 66% central está a
-//     salvo, de ahí el margen extra en la capa de delante.
-//   · El icono de notificación de Android se pinta como una silueta: el
-//     sistema tira todo el color y deja solo el alfa. Si se le pasa el escudo
-//     en color, sale un borrón blanco. Se genera aparte, ya en blanco puro.
+// POR QUÉ RESVG Y NO EL RENDERIZADOR DE SHARP
+// El escudo lleva «CLUB VOLEIBOL OVIEDO» curvado sobre una circunferencia
+// (`<textPath>`). El renderizador que trae sharp —librsvg— se lo come EN
+// SILENCIO: dibuja el escudo perfecto, con su anillo y sus balones, y sin una
+// sola letra alrededor. No da error; solo se ve mirando el resultado.
 //
-// Regenerar es idempotente: mismo escudo, mismos ficheros.
+// CADA SITIO QUIERE EL ICONO DE UNA FORMA
+//   · iOS no admite transparencia. Un icono con alfa sale con el fondo negro en
+//     el dispositivo, así que va aplanado sobre blanco.
+//   · Android recorta el icono adaptativo a la forma del lanzador (círculo,
+//     cuadrado redondeado, gota…). Solo el 66% central está a salvo, de ahí el
+//     margen extra en la capa de delante.
+//   · El de NOTIFICACIÓN es un activo aparte, no el logo encogido. Android le
+//     quita el color y lo pinta a 24 dp, así que ahí no cabe ni el escudo ni el
+//     monograma de tres letras: van dos. Ver el comentario de
+//     `notificacion.svg`.
+//
+// Regenerar es idempotente: mismos SVG, mismos ficheros.
 // ==========================================================================
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { Resvg } from '@resvg/resvg-js'
 import sharp from 'sharp'
 
 const RAIZ = path.join(import.meta.dirname, '..')
-const DESTINO = path.join(RAIZ, 'assets', 'icono')
-const ESCUDO = path.join(DESTINO, 'escudo.png')
+const CARPETA = path.join(RAIZ, 'assets', 'icono')
 
 // Azul del club (--blue en el index.css de la web).
 const AZUL = '#1560bd'
 const BLANCO = '#ffffff'
 
-const salida = (nombre) => path.join(DESTINO, nombre)
+const salida = (nombre) => path.join(CARPETA, nombre)
 
-/** El escudo recortado a su contenido, para controlar el margen nosotros. */
-async function escudoLimpio() {
-  return sharp(ESCUDO).trim({ threshold: 1 }).toBuffer()
+/** Un SVG del proyecto, rasterizado al ancho que se pida. */
+function rasterizar(fichero, ancho) {
+  const svg = fs.readFileSync(path.join(CARPETA, fichero), 'utf8')
+  const r = new Resvg(svg, {
+    fitTo: { mode: 'width', value: ancho },
+    // Sin las fuentes del sistema, el texto curvado del anillo no se dibuja.
+    font: { loadSystemFonts: true, defaultFontFamily: 'Georgia' },
+  })
+  return r.render().asPng()
 }
 
 /**
- * Coloca el escudo centrado en un lienzo cuadrado.
+ * Coloca una pieza centrada en un lienzo cuadrado.
  *
- * @param ocupacion cuánto del lado ocupa el escudo (1 = pegado a los bordes)
+ * @param ocupacion cuánto del lado ocupa (1 = pegada a los bordes)
  * @param fondo     color de fondo, o `null` para dejarlo transparente
  */
-async function componer(escudo, lado, ocupacion, fondo) {
+async function componer(png, lado, ocupacion, fondo) {
   const dentro = Math.round(lado * ocupacion)
-  const capa = await sharp(escudo).resize(dentro, dentro, { fit: 'contain' }).toBuffer()
+  const capa = await sharp(png).resize(dentro, dentro, { fit: 'contain' }).toBuffer()
+
   return sharp({
     create: {
       width: lado,
@@ -64,72 +77,33 @@ async function componer(escudo, lado, ocupacion, fondo) {
     .toBuffer()
 }
 
-/**
- * Silueta blanca sobre transparente: lo único que entiende la barra de estado.
- *
- * No vale con quedarse con el alfa del escudo. El escudo es un disco lleno, así
- * que su alfa es un círculo macizo y en la barra de estado saldría una pelota
- * blanca sin más, indistinguible de cualquier otra app.
- *
- * Lo que sí identifica al escudo son sus trazos negros: el aro de fuera, el
- * "CLUB VOLEIBOL OVIEDO" que lo rodea y las letras CVO del centro. Así que la
- * máscara se saca de la LUMINANCIA: lo oscuro pasa a blanco opaco y todo lo
- * demás —amarillo, cian, naranja, el fondo— se va a transparente. Queda el
- * dibujo del escudo en negativo, que es justo lo que Android va a pintar.
- */
-async function silueta(escudo, lado) {
-  const dentro = Math.round(lado * 0.94)
-
-  const base = sharp(escudo).resize(dentro, dentro, { fit: 'contain' }).ensureAlpha()
-
-  // Lo oscuro del escudo: negro tras el umbral, blanco el resto.
-  const oscuro = await base
-    .clone()
-    .flatten({ background: BLANCO }) // fuera del escudo es fondo, no trazo
-    .greyscale()
-    .threshold(110)
-    .toBuffer()
-
-  // `threshold` deja los trazos en negro (0) y el resto en blanco (255). Como
-  // máscara de opacidad hace falta al revés, de ahí el negado.
-  const mascara = await sharp(oscuro).negate({ alpha: false }).extractChannel(0).toBuffer()
-
-  const blanco = await sharp({
-    create: { width: dentro, height: dentro, channels: 3, background: BLANCO },
-  })
-    .png()
-    .toBuffer()
-
-  const capa = await sharp(blanco).joinChannel(mascara).png().toBuffer()
-
-  return sharp({
-    create: { width: lado, height: lado, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-  })
-    .composite([{ input: capa, gravity: 'center' }])
-    .png()
-    .toBuffer()
-}
-
 async function main() {
-  if (!fs.existsSync(ESCUDO)) {
-    console.error(`No está el escudo en ${ESCUDO}`)
-    process.exit(1)
+  for (const f of ['escudo.svg', 'notificacion.svg']) {
+    if (!fs.existsSync(path.join(CARPETA, f))) {
+      console.error(`Falta ${f} en assets/icono/`)
+      process.exit(1)
+    }
   }
 
-  const escudo = await escudoLimpio()
+  const escudo = rasterizar('escudo.svg', 1024)
+  const monograma = rasterizar('notificacion.svg', 512)
 
   const piezas = [
     // Icono de tienda y de app. Sobre blanco porque iOS no admite alfa.
     ['icon.png', await componer(escudo, 1024, 0.86, BLANCO)],
     // Android adaptativo: la capa de delante solo puede fiarse del 66% central.
     ['adaptive-foreground.png', await componer(escudo, 1024, 0.62, null)],
-    // Pantalla de arranque: el escudo suelto sobre el azul del club, que lo pone
-    // app.json. El anillo amarillo es lo que hace que se lea sobre ese fondo.
+    // Pantalla de arranque: el escudo suelto sobre el azul que pone app.json.
     ['splash.png', await componer(escudo, 1024, 0.62, null)],
-    // Notificaciones de Android: silueta, no escudo.
-    ['notificacion.png', await silueta(escudo, 256)],
-    // Icono monocromo del tema de Android 13+.
-    ['adaptive-monochrome.png', await silueta(escudo, 1024)],
+    /* Notificaciones: el monograma, no el escudo.
+
+       Android se queda solo con el alfa y lo rellena con el color de acento
+       (app.json). Va casi a sangre porque el SVG ya trae su propio margen y la
+       guía de Android pide la tinta dentro de 22 de los 24 dp: encogerlo aquí
+       otra vez es lo que dejaba una mancha diminuta en medio del hueco. */
+    ['notificacion.png', await componer(monograma, 256, 0.92, null)],
+    // Icono monocromo del tema de Android 13+: mismo criterio, más margen.
+    ['adaptive-monochrome.png', await componer(monograma, 1024, 0.55, null)],
     // Favicon de la versión web de Expo.
     ['favicon.png', await componer(escudo, 96, 0.92, BLANCO)],
   ]
