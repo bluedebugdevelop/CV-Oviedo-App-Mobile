@@ -61,8 +61,11 @@
     "reglas:desplegar": "firebase deploy --only firestore:rules,firestore:indexes",
     "apk": "cd android && gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64",
     "nativo": "expo prebuild --platform android --clean",
+    "nativo:ios": "expo prebuild --platform ios --clean",
+    "ios:preparar": "node scripts/entorno.mjs && expo prebuild --platform ios --clean",
     "tienda": "node scripts/tienda.mjs",
-    "tienda:textos": "node scripts/textos-tienda.mjs"
+    "tienda:textos": "node scripts/textos-tienda.mjs",
+    "entorno": "node scripts/entorno.mjs"
   },
   "private": true
 }

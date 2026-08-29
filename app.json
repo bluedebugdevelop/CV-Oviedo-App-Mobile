@@ -70,7 +70,8 @@
         {
           "icon": "./assets/icono/notificacion.png",
           "color": "#2b7fe0",
-          "defaultChannel": "avisos"
+          "defaultChannel": "avisos",
+          "mode": "production"
         }
       ],
       [

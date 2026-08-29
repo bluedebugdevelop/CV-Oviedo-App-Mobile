@@ -65,17 +65,30 @@ async function componer(png, lado, ocupacion, fondo) {
   const dentro = Math.round(lado * ocupacion)
   const capa = await sharp(png).resize(dentro, dentro, { fit: 'contain' }).toBuffer()
 
-  return sharp({
+  const lienzo = sharp({
     create: {
       width: lado,
       height: lado,
       channels: 4,
       background: fondo ?? { r: 0, g: 0, b: 0, alpha: 0 },
     },
-  })
-    .composite([{ input: capa, gravity: 'center' }])
-    .png()
-    .toBuffer()
+  }).composite([{ input: capa, gravity: 'center' }])
+
+  const compuesto = await lienzo.png().toBuffer()
+  if (!fondo) return compuesto
+
+  /* Con fondo, el alfa se va del todo, y en una SEGUNDA pasada.
+
+     No basta con pintar sobre blanco: el PNG se queda igualmente con su canal
+     alfa —todo opaco, pero presente— y App Store Connect rechaza el icono por
+     eso mismo (ITMS-90717: «can't be transparent nor contain an alpha
+     channel»).
+
+     Y no vale encadenar `.flatten()` en el mismo `sharp`: la librería aplica
+     sus operaciones en un orden fijo suyo, y el aplanado corre ANTES del
+     composite, así que no llega a tocar el resultado. Se comprobó: seguía
+     saliendo con cuatro canales. De ahí la segunda pasada. */
+  return sharp(compuesto).flatten({ background: fondo }).png().toBuffer()
 }
 
 async function main() {

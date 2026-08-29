@@ -284,6 +284,9 @@ npm run tipos              # comprobar tipos (TypeScript)
 npm run pruebas:reglas     # probar firestore.rules en el emulador
 npm run assets             # regenerar los iconos desde el escudo
 npm run reglas:desplegar   # subir reglas e índices a Firebase
+npm run entorno            # ¿está .env.local y completo?
+npm run nativo             # regenerar android/ desde app.json
+npm run ios:preparar       # entorno + ios/ + pod install  (solo macOS)
 ```
 
 Las pruebas de reglas necesitan Java. `firebase-tools` está fijado a la v13
@@ -332,6 +335,68 @@ publica nada solo. Antes de usar `eas submit` hay que rellenar en ese fichero el
 `appleId`, `ascAppId` y `appleTeamId`, y dejar la cuenta de servicio de Google
 Play en `secretos/google-play.json` (ignorado por git).
 
+### iOS a mano, desde un Mac con Xcode
+
+Alternativa a EAS: archivar y subir desde Xcode. Es el camino que se ha dejado
+preparado, porque la app se ha desarrollado entera en Windows y ahí Xcode no
+existe.
+
+**Por qué `ios/` no está en el repositorio.** `expo prebuild --platform ios` se
+niega a ejecutarse en Windows —lo dice él: *«Run npx expo prebuild again from
+macOS or Linux»*— así que la carpeta no se ha podido generar ni versionar desde
+la máquina de desarrollo. No es un olvido. En el Mac se genera en un comando, y
+además tiene una ventaja: al generarse desde `app.json` no puede quedarse vieja
+cuando ese fichero cambie.
+
+En el Mac, una vez:
+
+```bash
+git clone https://github.com/bluedebugdevelop/CV-Oviedo-App-Mobile.git
+cd CV-Oviedo-App-Mobile
+npm ci
+cp .env.example .env.local     # y rellenar las claves de Firebase
+```
+
+Y cada vez que se quiera subir una versión:
+
+```bash
+git pull
+npm run ios:preparar           # comprueba .env.local, genera ios/ y hace pod install
+open ios/CVOviedo.xcworkspace
+```
+
+`npm run ios:preparar` hace las tres cosas: valida el entorno, genera el
+proyecto nativo y —al correr en macOS— ejecuta `pod install` él solo. El
+`.xcworkspace` que abre Xcode lo crea ese `pod install`; el `.xcodeproj` a secas
+no vale, le faltan los Pods.
+
+Ya en Xcode: *Signing & Capabilities* → marcar **Automatically manage signing** y
+elegir el equipo de la cuenta de desarrollador del club. El identificador
+`com.cvoviedo` tiene que existir como App ID en esa cuenta, con **Push
+Notifications** activado. Luego *Product → Destination → Any iOS Device*,
+*Product → Archive*, y *Distribute App → App Store Connect*.
+
+**Lo que más falla, por orden:**
+
+1. **`.env.local`.** Las claves de Firebase no se leen al arrancar la app: Metro
+   las mete DENTRO del paquete al compilar. Si el Mac no las tiene, se archiva y
+   se sube una app que no puede hablar con Firebase, y eso no se descubre hasta
+   abrirla. Por eso `npm run ios:preparar` empieza comprobándolo, y por eso
+   conviene arrancar una vez en el simulador antes de archivar: si la app dice
+   que no puede conectar con Firebase, es esto.
+2. **La clave de APNs.** Las notificaciones de iOS no salen del mismo sitio que
+   las de Android. Hay que subir a Expo una clave `.p8` de APNs, igual que se
+   hizo con la de FCM: `npx eas credentials` → iOS → *Push Notifications Key*.
+   Sin ella la app se instala y funciona, pero no llega ni un aviso.
+3. **`aps-environment`.** El plugin de expo-notifications lo pone en
+   `development` por defecto, que es el APNs de pruebas y no sirve en la App
+   Store. En `app.json` está forzado a `production` (`"mode": "production"`). El
+   efecto secundario es que una build de depuración corrida desde Xcode tampoco
+   recibirá push; para desarrollar en iOS habría que volverlo a `development`.
+4. **El número de build.** App Store Connect rechaza subir dos veces el mismo.
+   Se cambia en `app.json` (`expo.ios.buildNumber`) y se vuelve a generar; no se
+   toca a mano en Xcode, porque la siguiente generación lo pisaría.
+
 ### Lo que piden las tiendas
 
 Ya resuelto en el repositorio:
@@ -362,6 +427,10 @@ Queda por hacer, y no se puede hacer desde aquí:
   hay registro público — es el motivo de rechazo más habitual en este tipo de
   apps (guideline 4.3 y 5.1.1 de Apple).
 - **Capturas de pantalla** para cada tamaño que pide cada tienda.
+- **Clave de APNs para iOS.** El equivalente de la de FCM, que ya está puesta.
+  Se saca del portal de Apple (*Keys* → nueva clave con *Apple Push
+  Notifications service*) y se sube con `npx eas credentials` → iOS. Sin ella la
+  app de iPhone se instala y funciona, pero no recibe ni un aviso.
 - **Declaración de datos**: App Privacy en App Store Connect y el formulario de
   seguridad de datos en Play Console. Lo que se recoge está listado en
   `src/app/privacidad.tsx`; hay que declarar correo, nombre, mensajes del chat e
