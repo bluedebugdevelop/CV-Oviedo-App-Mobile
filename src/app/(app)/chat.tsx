@@ -22,8 +22,6 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-
 import { Pantalla } from '../../componentes/Pantalla'
 import { SelectorEquipo } from '../../componentes/SelectorEquipo'
 import { Vacio } from '../../componentes/ui'
@@ -38,7 +36,6 @@ import { color, espacio, radio } from '../../tema'
 
 export default function Chat() {
   const { equipoActivo, perfil } = useSesion()
-  const bordes = useSafeAreaInsets()
 
   /* Igual que en el contexto de avisos: los mensajes viajan con el id del
      equipo del que son. Al cambiar de equipo no se ve un fotograma de la
@@ -184,7 +181,16 @@ export default function Chat() {
           </View>
         ) : null}
 
-        <View style={[e.barra, { paddingBottom: Math.max(bordes.bottom, espacio.md) }]}>
+        {/* Sin `bordes.bottom` aquí.
+
+            El chat es una pestaña, y la barra de pestañas ya reserva el borde
+            seguro del móvil (ver `(app)/_layout.tsx`). Sumarlo otra vez dejaba
+            un vacío entre el campo de escribir y las pestañas: el mismo doble
+            margen que ya se quitó en `Pantalla.tsx`.
+
+            Con el teclado abierto tampoco hace falta: el teclado se pinta por
+            encima de la barra de gestos. */}
+        <View style={e.barra}>
           <TextInput
             value={borrador}
             onChangeText={setBorrador}
@@ -277,6 +283,7 @@ const e = StyleSheet.create({
     gap: espacio.sm,
     paddingHorizontal: espacio.lg,
     paddingTop: espacio.md,
+    paddingBottom: espacio.md,
     backgroundColor: color.blanco,
     borderTopWidth: 1,
     borderTopColor: color.linea,
