@@ -134,12 +134,15 @@ src/
   app/                  rutas (expo-router)
     entrar.tsx          login — no hay registro
     (app)/              las cinco pestañas
-      index.tsx           inicio: avisos, próximo partido, noticias
+      index.tsx           inicio: planning semanal, avisos y noticias
       equipo.tsx          partidos, clasificación, horario y plantilla
-      chat.tsx            chat del equipo
-      avisos.tsx          avisos y confirmaciones
+      chat.tsx            bandeja de chats (o la conversación, si hay un equipo)
+      avisos.tsx          bandeja de avisos (íd.)
       mas.tsx             perfil y accesos de entrenador/admin
+    chat/[equipoId].tsx     la conversación de un equipo
+    avisos/[equipoId].tsx   los avisos de un equipo
     aviso-nuevo.tsx     mandar un aviso (entrenador)
+    cambiar-clave.tsx   cambiarse la contraseña
     entrenamientos.tsx  horario y citas (entrenador)
     noticia/[slug].tsx  ficha de noticia
     privacidad.tsx
@@ -151,11 +154,24 @@ src/
   lib/
     firebase/           modelo de datos y consultas
     web/                cliente de clubvoleiboloviedo.com
+    semana.ts           el reparto por días del planning (sin React ni red)
     push.ts             notificaciones
-  contexto/             sesión, avisos y panel
+  datos/                la semilla de equipos y horarios de la temporada
+  contexto/             sesión, chats, avisos, agenda y panel
   componentes/          la interfaz compartida
   tema.ts               colores y medidas, sacados de la web
 ```
+
+### Chat y avisos: una bandeja por equipo
+
+Quien está en más de un equipo —jugar en dos categorías, entrenar a una y jugar
+en otra— ve una lista con una fila por equipo: vista previa de lo último, hora y
+globito de sin leer, y cada equipo se abre en su pantalla. Con un solo equipo se
+entra directo, sin lista.
+
+Los contadores de las pestañas cuentan **todos** los equipos, no el que se esté
+mirando. Antes había arriba un selector de equipos en pastillas y había que ir
+tocándolo para descubrir dónde había algo nuevo.
 
 ### De dónde sale cada dato
 
