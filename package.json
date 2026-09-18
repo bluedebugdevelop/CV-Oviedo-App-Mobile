@@ -60,6 +60,7 @@
     "pruebas:reglas": "firebase emulators:exec --only firestore --project cvo-pruebas \"node --test pruebas/reglas.test.mjs\"",
     "reglas:desplegar": "firebase deploy --only firestore:rules,firestore:indexes",
     "apk": "cd android && gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64",
+    "bundle": "cd android && gradlew bundleRelease",
     "nativo": "expo prebuild --platform android --clean",
     "nativo:ios": "expo prebuild --platform ios --clean",
     "ios:preparar": "node scripts/entorno.mjs && expo prebuild --platform ios --clean",

@@ -16,7 +16,8 @@ npm run pruebas:reglas     # tests de las reglas de Firestore contra el emulador
 npm run pruebas:semana     # tests del planning semanal (Node pelado, sin Expo)
 npm run reglas:desplegar   # firebase deploy --only firestore:rules,firestore:indexes
 npm run alta:equipos       # siembra los equipos de la temporada (--va para escribir)
-npm run apk                # build release arm64 + x86_64
+npm run apk                # APK de release, arm64 + x86_64 (para instalar a mano)
+npm run bundle             # AAB de release para Play, con las CUATRO ABIs
 npm run nativo             # expo prebuild --platform android --clean
 npm run ios:preparar       # entorno.mjs + prebuild ios
 npm run tienda             # material de ficha de tienda (Play)
@@ -75,6 +76,14 @@ lógica pura y se prueban en Node sin bundler (`npm run pruebas:semana`). Por es
 `partidos.ts` está separado de `competicion.ts`, que sí arrastra el cliente HTTP
 y con él `expo-constants`. Tampoco vale sintaxis de TypeScript que genere código
 (las *parameter properties* del constructor): Node solo quita tipos.
+
+**El AAB de Play va SIN `-PreactNativeArchitectures`.** Ese parámetro está en
+`npm run apk` para que el APK que se pasa a mano no pese de más, y ahí no hace
+daño. En el bundle sí: recorta el AAB a las ABIs que se listen y deja fuera a
+los móviles de 32 bits (`armeabi-v7a`), que Play ya no podría servir. Se
+comprueba en un segundo:
+`unzip -l entregas/CVOviedo-*.aab | grep -o "base/lib/[a-z0-9_-]*" | sort -u`
+tiene que dar cuatro líneas.
 
 **Depende de la web del club** (`bluedebugdevelop/ClubVoleibolOviedoWeb`) para
 noticias y datos de competición. Si cambia el formato de `competicion.json` allí,
