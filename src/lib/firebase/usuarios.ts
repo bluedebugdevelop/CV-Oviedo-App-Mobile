@@ -64,6 +64,12 @@ function aUsuario(uid: string, datos: any): Usuario {
     telefono: datos?.telefono ?? '',
     activo: datos?.activo !== false,
     tokensPush: listaLimpia(datos?.tokensPush),
+    // Un objeto suelto, no un array: las fichas anteriores a esto no lo traen
+    // y sin el respaldo el contador de no leídos reventaría al leerlas.
+    lecturasChat:
+      datos?.lecturasChat && typeof datos.lecturasChat === 'object'
+        ? datos.lecturasChat
+        : {},
     creadoEn: datos?.creadoEn,
     creadoPor: datos?.creadoPor,
   }
@@ -200,4 +206,21 @@ export async function guardarTokenPush(uid: string, token: string) {
 
 export async function olvidarTokenPush(uid: string, token: string) {
   await updateDoc(docUsuario(uid), { tokensPush: arrayRemove(token) })
+}
+
+// --- lectura del chat -----------------------------------------------------
+
+/**
+ * Apunta que esta persona acaba de ver el chat de este equipo.
+ *
+ * La hora la pone el servidor, igual que la de los mensajes. Con la del móvil,
+ * un reloj adelantado marcaría como leídos mensajes que aún no han llegado y
+ * el globito no volvería a salir nunca en ese aparato.
+ *
+ * La ruta con puntos (`lecturasChat.abc`) cambia UNA clave del mapa sin tocar
+ * las demás: mandar el objeto entero pisaría la marca de otro equipo si el
+ * perfil que tiene la pantalla en memoria estuviera un instante desfasado.
+ */
+export async function marcarChatLeido(uid: string, equipoId: string) {
+  await updateDoc(docUsuario(uid), { [`lecturasChat.${equipoId}`]: serverTimestamp() })
 }

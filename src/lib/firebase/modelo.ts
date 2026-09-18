@@ -122,6 +122,25 @@ export interface Usuario {
   activo: boolean
   /** Tokens de Expo Push, uno por dispositivo donde tenga la app. */
   tokensPush: string[]
+  /**
+   * Cuándo miró por última vez el chat de cada equipo: `{ equipoId: Timestamp }`.
+   *
+   * Es lo que hace que la lista de chats pueda enseñar un globito de no leídos
+   * como el de WhatsApp. Va en la ficha del usuario, y no en cada mensaje ni en
+   * una subcolección, por tres razones:
+   *
+   *   · Es un dato POR PERSONA, no por mensaje. Con una lista `leidoPor` en
+   *     cada mensaje —que es lo que hacen los avisos, donde el entrenador
+   *     necesita saber quién lo leyó— habría que escribir en cien documentos
+   *     para marcar un chat como visto.
+   *   · La ficha propia ya se está escuchando en `contexto/sesion`, así que el
+   *     contador sale sin una sola lectura de más.
+   *   · Nadie más necesita saberlo. En un chat de equipo no hay doble check.
+   *
+   * Un equipo que no esté en el mapa se trata como «nunca abierto», y entonces
+   * cuentan como nuevos todos los mensajes que haya.
+   */
+  lecturasChat: Record<string, Timestamp>
   creadoEn?: Timestamp
   creadoPor?: string
 }

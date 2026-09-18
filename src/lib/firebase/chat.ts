@@ -34,8 +34,18 @@ const coleccion = (equipoId: string) => collection(db, 'equipos', equipoId, 'men
  * Ese orden es el que quiere una FlatList invertida, que es como se pinta un
  * chat: la lista arranca abajo y crece hacia arriba sin tener que medir nada.
  */
-export function escucharMensajes(equipoId: string, alCambiar: (ms: Mensaje[]) => void) {
-  const q = query(coleccion(equipoId), orderBy('creadoEn', 'desc'), limit(TOPE))
+export function escucharMensajes(
+  equipoId: string,
+  alCambiar: (ms: Mensaje[]) => void,
+  /**
+   * Cuántos traer. La conversación quiere los 200; la lista de chats, que
+   * escucha TODOS los equipos a la vez, se conforma con los últimos pocos:
+   * solo necesita el último para la vista previa y los recientes para contar
+   * los no leídos.
+   */
+  tope = TOPE,
+) {
+  const q = query(coleccion(equipoId), orderBy('creadoEn', 'desc'), limit(tope))
   return onSnapshot(q, (snap) => {
     alCambiar(
       snap.docs.map((d) => {
