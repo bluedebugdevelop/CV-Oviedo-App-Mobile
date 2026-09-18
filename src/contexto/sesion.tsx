@@ -64,6 +64,13 @@ interface Sesion {
   limpiarExpulsion: () => void
   /** Por qué no llegan las notificaciones del sistema, si no llegan. */
   avisoPush: string | null
+  /**
+   * Vuelve a pedir permiso y a registrar el token de este móvil.
+   *
+   * Para quien dijo que no al diálogo del primer arranque sin querer: sin esto
+   * la única salida era reinstalar la app.
+   */
+  activarPush: () => Promise<boolean>
 }
 
 const Contexto = createContext<Sesion | null>(null)
@@ -176,24 +183,31 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   }, [perfil, equipos])
 
   // --- notificaciones ---
+  const registrarPush = useCallback(async (quien: Usuario) => {
+    const { token, motivo } = await registrarParaPush()
+    if (!token) {
+      setAvisoPush(motivo ?? null)
+      return false
+    }
+    setAvisoPush(null)
+    // `arrayUnion` no duplica, así que se puede guardar en cada arranque sin
+    // llenar el perfil de tokens repetidos.
+    if (!quien.tokensPush.includes(token)) {
+      await guardarTokenPush(quien.uid, token).catch(() => {})
+    }
+    return true
+  }, [])
+
   useEffect(() => {
     if (!perfil || pushHecho.current) return
     pushHecho.current = true
+    void registrarPush(perfil)
+  }, [perfil, registrarPush])
 
-    void (async () => {
-      const { token, motivo } = await registrarParaPush()
-      if (!token) {
-        setAvisoPush(motivo ?? null)
-        return
-      }
-      setAvisoPush(null)
-      // `arrayUnion` no duplica, así que se puede guardar en cada arranque sin
-      // llenar el perfil de tokens repetidos.
-      if (!perfil.tokensPush.includes(token)) {
-        await guardarTokenPush(perfil.uid, token).catch(() => {})
-      }
-    })()
-  }, [perfil])
+  const activarPush = useCallback(
+    async () => (perfil ? registrarPush(perfil) : false),
+    [perfil, registrarPush],
+  )
 
   const entrar = useCallback(async (email: string, clave: string) => {
     setExpulsion(null)
@@ -224,8 +238,20 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       expulsion,
       limpiarExpulsion: () => setExpulsion(null),
       avisoPush,
+      activarPush,
     }),
-    [estado, cuenta, perfil, equipos, equipoActivo, entrar, salir, expulsion, avisoPush],
+    [
+      estado,
+      cuenta,
+      perfil,
+      equipos,
+      equipoActivo,
+      entrar,
+      salir,
+      expulsion,
+      avisoPush,
+      activarPush,
+    ],
   )
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>
