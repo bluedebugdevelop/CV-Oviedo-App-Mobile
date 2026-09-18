@@ -127,3 +127,81 @@ export function useCompeticion(clave: string | null): Traida<EquipoCompeticion> 
 
   return useTraida(clave, traer)
 }
+
+/**
+ * Varias competiciones a la vez.
+ *
+ * Lo pide el planning semanal de Inicio, que tiene que juntar los partidos de
+ * TODOS los equipos de la persona: quien juega en dos categorías tiene dos
+ * calendarios federados distintos y el sábado le tocan los dos.
+ *
+ * No se apoya en `useCompeticion` en bucle porque los hooks no se pueden
+ * llamar dentro de un `map`: el número de llamadas cambiaría al cambiar de
+ * equipos y React perdería el hilo de qué estado es de quién.
+ *
+ * Se pide una vez por clave y se guarda por clave. Los equipos sin competición
+ * federada —la base del club, que la web no publica— no entran aquí.
+ */
+export function useCompeticiones(claves: string[]): {
+  porClave: Record<string, EquipoCompeticion>
+  cargando: boolean
+  recargar: () => void
+} {
+  /* Lo traído va junto con la firma de lo que se pidió, igual que en
+     `useTraida`: si no coincide con lo que se pide ahora, es que sobra. Así no
+     hace falta vaciarlo desde el efecto, que provoca un render en cascada. */
+  const [guardado, setGuardado] = useState<{
+    firma: string
+    datos: Record<string, EquipoCompeticion>
+  }>({ firma: '', datos: {} })
+  const [tirada, setTirada] = useState(0)
+
+  // Una cadena estable: el array llega nuevo en cada render de quien llama, y
+  // como dependencia volvería a pedirlo todo sin que haya cambiado nada.
+  const firma = [...new Set(claves)].sort().join('|')
+
+  useEffect(() => {
+    const lista = firma ? firma.split('|') : []
+    if (lista.length === 0) return
+
+    let vigente = true
+
+    void (async () => {
+      const salida: Record<string, EquipoCompeticion> = {}
+
+      /* En paralelo y tolerando fallos sueltos.
+
+         Son dos o tres peticiones a la misma web; en serie se notaría al abrir
+         Inicio. Y si una falla —un calendario que el scraper aún no ha
+         publicado— el resto de la semana se pinta igual: quedarse sin planning
+         entero por un equipo sería peor que enseñarlo incompleto. */
+      await Promise.all(
+        lista.map(async (clave) => {
+          try {
+            const r = await cargarCompeticion(clave)
+            salida[clave] = r.equipo
+          } catch {
+            /* ese equipo se queda sin partidos y ya */
+          }
+        }),
+      )
+
+      if (vigente) setGuardado({ firma, datos: salida })
+    })()
+
+    return () => {
+      vigente = false
+    }
+  }, [firma, tirada])
+
+  const recargar = useCallback(() => setTirada((n) => n + 1), [])
+
+  const alDia = guardado.firma === firma
+  return {
+    porClave: alDia ? guardado.datos : {},
+    // Sin claves que pedir no hay nada que esperar: un equipo sin competición
+    // federada no deja el planning girando para siempre.
+    cargando: Boolean(firma) && !alDia,
+    recargar,
+  }
+}
