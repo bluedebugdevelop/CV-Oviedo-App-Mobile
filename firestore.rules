@@ -157,12 +157,18 @@ service cloud.firestore {
                && 'admin' in rolesEn(resource.data)
                && !('admin' in rolesEn(request.resource.data)))
         ) || (
-          // Cada cual apunta el aparato donde tiene la app instalada. Solo eso:
-          // sin este `hasOnly`, un jugador podría ascenderse a admin de un
-          // update.
+          /* Lo que cada cual puede cambiar de su propia ficha, y nada más.
+
+             Son dos cosas y las dos son suyas: el aparato donde tiene la app
+             instalada (`tokensPush`) y cuándo miró por última vez el chat de
+             cada equipo (`lecturasChat`, que alimenta el globito de no leídos).
+
+             El `hasOnly` es lo que importa aquí: sin él, un jugador podría
+             ascenderse a admin en el mismo update con el que guarda su token.
+             Cada campo que se añada a esta lista hay que mirarlo dos veces. */
           uid == request.auth.uid
           && soyDelClub()
-          && tocaSolo(['tokensPush'])
+          && tocaSolo(['tokensPush', 'lecturasChat'])
         );
 
       // Nunca. Una persona se desactiva (`activo: false`), no se borra: si se

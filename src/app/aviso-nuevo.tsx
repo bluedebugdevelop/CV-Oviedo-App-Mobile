@@ -15,9 +15,9 @@
 // El envío lo hace este móvil, no un servidor (ver lib/push.ts).
 // ==========================================================================
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Alert, StyleSheet, Text, View } from 'react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 
 import { Pantalla } from '../componentes/Pantalla'
 import { Banda, Boton, Campo, Interruptor, Pildoras, Tarjeta } from '../componentes/ui'
@@ -30,8 +30,25 @@ import { color, espacio } from '../tema'
 
 export default function AvisoNuevo() {
   const sesion = useSesion()
-  const { equipoActivo, perfil } = sesion
-  const puede = mandaAqui(sesion, equipoActivo)
+  const { equipos, equipoActivo, perfil } = sesion
+
+  /* A qué equipo se manda.
+
+     Viene en la ruta (`/aviso-nuevo?equipo=<id>`) porque la pantalla de avisos
+     ya no depende de un «equipo activo»: desde que la bandeja abre cada equipo
+     en su propia pantalla, quien entrena a dos podía estar leyendo los avisos
+     del cadete y mandar el suyo al juvenil sin enterarse.
+
+     Se admite entrar sin parámetro —por si algún atajo o una notificación
+     llevan aquí a pelo— y entonces vale el equipo activo, que es lo que había
+     antes. */
+  const { equipo: equipoPedido } = useLocalSearchParams<{ equipo?: string }>()
+  const equipoActual = useMemo(
+    () => equipos.find((eq) => eq.id === equipoPedido) ?? equipoActivo,
+    [equipos, equipoPedido, equipoActivo],
+  )
+
+  const puede = mandaAqui(sesion, equipoActual)
 
   const [titulo, setTitulo] = useState('')
   const [cuerpo, setCuerpo] = useState('')
@@ -44,11 +61,11 @@ export default function AvisoNuevo() {
   // enviar para poder decir de antemano a cuánta gente va a llegar.
   const [plantilla, setPlantilla] = useState<Usuario[]>([])
   useEffect(() => {
-    if (!equipoActivo) return
-    return escucharUsuariosDeEquipo(equipoActivo.id, setPlantilla)
-  }, [equipoActivo])
+    if (!equipoActual) return
+    return escucharUsuariosDeEquipo(equipoActual.id, setPlantilla)
+  }, [equipoActual])
 
-  if (!equipoActivo || !puede || !perfil) {
+  if (!equipoActual || !puede || !perfil) {
     return (
       <Pantalla titulo="Nuevo aviso" atras>
         <Banda tono="error">
@@ -69,7 +86,7 @@ export default function AvisoNuevo() {
 
     try {
       await crearAviso(
-        equipoActivo!.id,
+        equipoActual!.id,
         { titulo: titulo.trim(), cuerpo: cuerpo.trim(), tipo, requiereConfirmacion: confirmar },
         { uid: perfil!.uid, nombre: perfil!.nombre },
       )
@@ -78,7 +95,7 @@ export default function AvisoNuevo() {
       // Quién recibe y con qué texto lo decide firebase/notificar.ts, que es
       // el único sitio de la app que habla con Expo Push.
       const entregados = await avisarAviso(
-        equipoActivo!,
+        equipoActual!,
         plantilla,
         perfil!,
         { titulo: titulo.trim(), cuerpo: cuerpo.trim() },
@@ -100,7 +117,7 @@ export default function AvisoNuevo() {
   }
 
   return (
-    <Pantalla ante={equipoActivo.nombre} titulo="Nuevo aviso" atras>
+    <Pantalla ante={equipoActual.nombre} titulo="Nuevo aviso" atras>
       {error ? <Banda tono="error">{error}</Banda> : null}
 
       <Campo

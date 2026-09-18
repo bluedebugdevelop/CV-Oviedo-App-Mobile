@@ -2,7 +2,7 @@
 // Las pestañas de abajo.
 //
 // Son cinco y las mismas para todo el mundo: Inicio, Equipo, Chat, Avisos y
-// Más. Lo que cambia según el rol no son las pestañas sino lo que hay dentro —
+// Mi perfil (que para un admin se llama Más). Lo que cambia según el rol no son las pestañas sino lo que hay dentro —
 // un entrenador ve el botón de crear aviso donde un jugador ve la lista, y las
 // pantallas de administración cuelgan de «Más».
 //
@@ -16,7 +16,10 @@ import { Tabs } from 'expo-router'
 import { StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { ProveedorAvisos, useAvisos } from '../../contexto/avisos'
+import { useAvisos } from '../../contexto/avisos'
+import { useChats } from '../../contexto/chats'
+import { useSesion } from '../../contexto/sesion'
+import { esAdmin } from '../../lib/firebase/modelo'
 import { color } from '../../tema'
 
 /** El globito rojo con el número de avisos sin leer. */
@@ -31,7 +34,13 @@ function Globo({ n }: { n: number }) {
 
 function Barra() {
   const { noLeidos } = useAvisos()
+  const { totalNoLeidos: mensajesNuevos } = useChats()
+  const { perfil } = useSesion()
   const bordes = useSafeAreaInsets()
+  // Para un jugador o un entrenador esa pestaña es su cuenta y poco más. Para
+  // un admin es además la puerta a toda la administración, y ahí «Mi perfil»
+  // se queda corto.
+  const admin = perfil ? esAdmin(perfil) : false
 
   return (
     <Tabs
@@ -78,8 +87,14 @@ function Barra() {
         name="chat"
         options={{
           title: 'Chat',
+          // El mismo globito que los avisos: ahora que la bandeja enseña todos
+          // los equipos, la pestaña puede decir si hay algo nuevo en CUALQUIERA
+          // de ellos sin tener que entrar a mirar.
           tabBarIcon: ({ color: c, size }) => (
-            <Ionicons name="chatbubbles" size={size} color={c} />
+            <View>
+              <Ionicons name="chatbubbles" size={size} color={c} />
+              <Globo n={mensajesNuevos} />
+            </View>
           ),
         }}
       />
@@ -98,9 +113,13 @@ function Barra() {
       <Tabs.Screen
         name="mas"
         options={{
-          title: 'Más',
+          title: admin ? 'Más' : 'Mi perfil',
           tabBarIcon: ({ color: c, size }) => (
-            <Ionicons name="ellipsis-horizontal-circle" size={size} color={c} />
+            <Ionicons
+              name={admin ? 'ellipsis-horizontal-circle' : 'person-circle'}
+              size={size}
+              color={c}
+            />
           ),
         }}
       />
@@ -108,12 +127,11 @@ function Barra() {
   )
 }
 
+// Los proveedores de avisos y chats ya no se montan aquí, sino en la raíz
+// (`app/_layout.tsx`): las pantallas de conversación y de avisos de un equipo
+// viven fuera de las pestañas y necesitan los mismos datos.
 export default function DisposicionApp() {
-  return (
-    <ProveedorAvisos>
-      <Barra />
-    </ProveedorAvisos>
-  )
+  return <Barra />
 }
 
 const e = StyleSheet.create({
