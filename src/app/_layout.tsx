@@ -16,7 +16,7 @@
 import * as Notifications from 'expo-notifications'
 import { Stack, router, useRootNavigationState, useSegments } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -44,6 +44,8 @@ function Portero() {
   // El router no está listo en el primer render; navegar antes no hace nada y
   // deja la app en la ruta de partida.
   const navegacionLista = useRootNavigationState()?.key
+  // Si la app se abrió tocando una notificación, ya se ha ido a donde decía.
+  const arranqueAtendido = useRef(false)
 
   useEffect(() => {
     if (!navegacionLista || estado === 'arrancando') return
@@ -70,7 +72,14 @@ function Portero() {
 
      `getLastNotificationResponseAsync` cubre el caso de la app cerrada: el
      listener solo oye los toques que pasan con el proceso ya vivo, y arrancar
-     la app desde una notificación no es uno de ellos. */
+     la app desde una notificación no es uno de ellos.
+
+     Y ese caso hay que atenderlo UNA sola vez, de ahí el `arranqueAtendido`.
+     El sistema guarda esa última respuesta y la sigue devolviendo mientras
+     viva el proceso, mientras que este efecto se vuelve a montar cada vez que
+     cambian sus dependencias —al cerrar y volver a abrir sesión, por ejemplo—.
+     Sin el candado, cada una de esas veces devolvería a la conversación de una
+     notificación que se tocó hace media hora. */
   useEffect(() => {
     if (!navegacionLista || estado !== 'dentro') return
 
@@ -80,9 +89,12 @@ function Portero() {
       if (vigente && ruta) router.push(ruta as any)
     }
 
-    void Notifications.getLastNotificationResponseAsync().then((respuesta) => {
-      if (respuesta) ir(respuesta.notification.request.content.data)
-    })
+    if (!arranqueAtendido.current) {
+      arranqueAtendido.current = true
+      void Notifications.getLastNotificationResponseAsync().then((respuesta) => {
+        if (respuesta) ir(respuesta.notification.request.content.data)
+      })
+    }
 
     const oyente = Notifications.addNotificationResponseReceivedListener((respuesta) =>
       ir(respuesta.notification.request.content.data),

@@ -26,6 +26,16 @@
 // ahí el globito dice «+». Es lo mismo que hace cualquier app de mensajería y
 // evita tener que contar el histórico entero para pintar un número que, pasado
 // de veinte, ya nadie lee como cantidad exacta.
+//
+// EL PRIMER DÍA
+// Un equipo sin marca de lectura no se cuenta entero como no leído: se le pone
+// la marca AHORA y se empieza a contar desde aquí.
+//
+// Sin eso, el día que se publica esta versión todo el club abre la app y se
+// encuentra un «30+» rojo en un chat que llevaba leído semanas —antes de esto
+// no se guardaba ninguna marca, así que no había nada que pudiera estar sin
+// leer de verdad—. Y a quien entra nuevo en un equipo le pasaría lo mismo con
+// una conversación en la que aún no ha dicho nada.
 // ==========================================================================
 
 import {
@@ -33,6 +43,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -40,6 +51,7 @@ import {
 import { aDate } from '../lib/fechas'
 import { escucharMensajes } from '../lib/firebase/chat'
 import type { Mensaje } from '../lib/firebase/modelo'
+import { marcarChatLeido } from '../lib/firebase/usuarios'
 import { useSesion } from './sesion'
 
 /** Los que se traen de cada equipo para la lista. Ver el bloque de arriba. */
@@ -81,6 +93,13 @@ export function ProveedorChats({ children }: { children: ReactNode }) {
     firma: '',
     datos: {},
   })
+
+  /* Equipos a los que ya se les ha puesto la primera marca en esta sesión.
+
+     El `perfil` tarda un momento en traer de vuelta lo que se acaba de
+     escribir, y sin esto se mandaría la misma escritura en cada render de ese
+     rato. Es un ref y no estado porque no pinta nada. */
+  const estrenados = useRef(new Set<string>())
 
   const ids = useMemo(
     () => equipos.filter((eq) => !eq.archivado).map((eq) => eq.id),
@@ -127,14 +146,20 @@ export function ProveedorChats({ children }: { children: ReactNode }) {
       /* Un mensaje cuenta como nuevo si llegó después de la última vez que se
          abrió el chat y no lo escribió quien mira.
 
+         Sin marca de lectura no cuenta NINGUNO —ver «EL PRIMER DÍA» arriba—:
+         ese equipo está a punto de estrenarla y contarlos mientras tanto
+         enseñaría el «30+» rojo justo el rato que se quiere evitar.
+
          Los que todavía no tienen hora del servidor (`aDate` → null) son los
          que acaban de salir de este mismo móvil: no son novedad para nadie. */
-      const nuevos = mensajes.filter((m) => {
-        if (m.autor === perfil?.uid) return false
-        const cuando = aDate(m.creadoEn)
-        if (!cuando) return false
-        return !desde || cuando > desde
-      })
+      const nuevos = !desde
+        ? []
+        : mensajes.filter((m) => {
+            if (m.autor === perfil?.uid) return false
+            const cuando = aDate(m.creadoEn)
+            if (!cuando) return false
+            return cuando > desde
+          })
 
       porEquipo[id] = {
         equipoId: id,
@@ -152,6 +177,33 @@ export function ProveedorChats({ children }: { children: ReactNode }) {
       cargando: ids.some((id) => !crudos[id]),
     }
   }, [ids, firmaIds, recibido, perfil])
+
+  /* La primera marca de lectura de cada equipo: ver «EL PRIMER DÍA» arriba.
+
+     Todo esto vive en el efecto, incluida la decisión de a quién le falta. Es
+     donde tiene que estar: leer el ref mientras se calcula lo que se pinta está
+     prohibido —un render no puede depender de algo que cambia por fuera de
+     React— y escribir en Firestore al pintar dispararía una escritura por
+     render durante el rato que el perfil tarda en volver con el dato puesto. */
+  useEffect(() => {
+    if (!perfil) return
+    const crudos = recibido.firma === firmaIds ? recibido.datos : {}
+
+    for (const id of ids) {
+      // Solo con el chat ya cargado: sin haber visto los mensajes no se sabe
+      // si hay algo que marcar, y la marca es irreversible.
+      if (!crudos[id]) continue
+      if (perfil.lecturasChat?.[id]) continue
+      if (estrenados.current.has(id)) continue
+
+      estrenados.current.add(id)
+      void marcarChatLeido(perfil.uid, id).catch(() => {
+        // Si no se pudo, se reintenta en el siguiente arranque. Lo peor que
+        // pasa es que el globito tarde en encenderse.
+        estrenados.current.delete(id)
+      })
+    }
+  }, [perfil, ids, firmaIds, recibido])
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>
 }
