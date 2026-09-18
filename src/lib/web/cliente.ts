@@ -10,12 +10,19 @@ import { WEB_BASE } from '../config'
 
 /** Un fallo que se le puede enseñar a alguien sin que le diga nada raro. */
 export class ErrorWeb extends Error {
-  constructor(
-    mensaje: string,
-    readonly estado?: number,
-  ) {
+  /* El campo se declara y se asigna a mano, sin la forma corta de TypeScript
+     (`constructor(mensaje: string, readonly estado?: number)`).
+
+     Las dos cosas compilan igual, pero la corta es sintaxis que GENERA código,
+     no solo tipos, y Node no la entiende cuando ejecuta TypeScript quitando los
+     tipos y nada más —que es como corren las pruebas de `pruebas/`—. Cualquier
+     fichero que acabe importando este se quedaba sin poder probarse por esto. */
+  readonly estado?: number
+
+  constructor(mensaje: string, estado?: number) {
     super(mensaje)
     this.name = 'ErrorWeb'
+    this.estado = estado
   }
 }
 
