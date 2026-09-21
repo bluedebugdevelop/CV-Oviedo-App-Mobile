@@ -66,10 +66,24 @@ guardado va junto con la firma de los equipos de los que es, y si no coincide se
 descarta **al pintar**—. Vaciar el estado desde el efecto enseña un fotograma de
 datos de un equipo del que ya se ha salido, y además el linter lo rechaza.
 
-**`equipoActivo` sigue existiendo, pero solo para la pestaña de Equipo.** Todo
-lo que se abra por ruta (`/chat/[equipoId]`, `/avisos/[equipoId]`,
-`/aviso-nuevo?equipo=`) coge el equipo del parámetro. Es lo que evita que quien
-entrena a dos mande el aviso al equipo equivocado.
+**Ya no hay «equipo activo».** Las tres pestañas de equipo —Equipo, Chat y
+Avisos— son una lista cuando hay varios y entran directas cuando hay uno, y todo
+lo demás se abre por ruta con el id dentro (`/equipo/[equipoId]/[seccion]`,
+`/chat/[equipoId]`, `/avisos/[equipoId]`, `/aviso-nuevo?equipo=`,
+`/entrenamientos?equipo=`). `equipoActivo` sobrevive solo como respaldo para
+quien entre sin parámetro. Es lo que evita que quien entrena a dos mande el
+aviso —o edite el horario— del equipo equivocado.
+
+**Los equipos archivados se filtran UNA vez, en `contexto/sesion`.** `equipos`
+sale de ahí ya sin ellos. Antes lo filtraba cada consumidor por su cuenta y el
+selector de equipo y `equipoActivo` se lo saltaban: al empezar la temporada
+aparecían los equipos del año pasado, vacíos y sin calendario, mezclados con los
+de esta. La administración sigue viéndolos con `escucharTodosLosEquipos`.
+
+**Las cuatro secciones del equipo no van en un control segmentado.**
+«Clasificación» no cabe en un cuarto de pantalla y salía cortada. Son tarjetas
+en rejilla de dos en dos (`app/equipo/[equipoId]/index.tsx`), cada una con el
+dato que resume lo que hay dentro, y cada sección se abre entera.
 
 **`lib/semana.ts` y `lib/web/partidos.ts` no pueden importar nada de Expo.** Son
 lógica pura y se prueban en Node sin bundler (`npm run pruebas:semana`). Por eso

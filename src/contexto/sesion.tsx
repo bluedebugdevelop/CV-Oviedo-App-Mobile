@@ -81,7 +81,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   const [estado, setEstado] = useState<Estado>(firebaseListo ? 'arrancando' : 'fuera')
   const [cuenta, setCuenta] = useState<User | null>(null)
   const [perfil, setPerfil] = useState<Usuario | null>(null)
-  const [equipos, setEquipos] = useState<Equipo[]>([])
+  const [todosSusEquipos, setTodosSusEquipos] = useState<Equipo[]>([])
   const [equipoElegido, setEquipoElegido] = useState<string | null>(null)
   const [expulsion, setExpulsion] = useState<string | null>(null)
   const [avisoPush, setAvisoPush] = useState<string | null>(null)
@@ -113,7 +113,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       setCuenta(u)
       if (!u) {
         setPerfil(null)
-        setEquipos([])
+        setTodosSusEquipos([])
         setEquipoElegido(null)
         pushHecho.current = false
         setEstado('fuera')
@@ -156,7 +156,24 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   // Se suscribe siempre, también sin perfil: con la lista de ids vacía,
   // `escucharEquiposPorId` emite [] y devuelve un corte que no hace nada. Así
   // no hay que vaciar el estado a mano desde el efecto.
-  useEffect(() => escucharEquiposPorId(perfil?.equipos ?? [], setEquipos), [perfil])
+  useEffect(() => escucharEquiposPorId(perfil?.equipos ?? [], setTodosSusEquipos), [perfil])
+
+  /* Los equipos ARCHIVADOS no salen de aquí.
+
+     Archivar es lo que se hace al acabar la temporada: el equipo conserva su
+     chat, sus avisos y su horario, pero deja de existir para quien estaba en
+     él. Antes el filtro lo ponía cada consumidor por su cuenta —los contextos
+     de chat, avisos y agenda lo hacían; el selector de equipo y `equipoActivo`
+     no—, y el resultado era que en la pestaña de Equipo seguían apareciendo
+     los de la temporada pasada, vacíos y sin calendario, mezclados con los de
+     esta. Filtrar UNA vez aquí arregla los cuatro sitios a la vez.
+
+     Un equipo archivado no se queda huérfano: sigue en `perfil.equipos` y la
+     administración lo ve entero con `escucharTodosLosEquipos`. */
+  const equipos = useMemo(
+    () => todosSusEquipos.filter((eq) => !eq.archivado),
+    [todosSusEquipos],
+  )
 
   /* --- vigilancia del calendario federado ---
 
@@ -169,8 +186,9 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!perfil) return
 
+    // `equipos` ya viene sin archivados; aquí solo se filtra por competición.
     const vigilados = equipos
-      .filter((eq) => eq.claveCompeticion && !eq.archivado)
+      .filter((eq) => eq.claveCompeticion)
       .map((eq) => ({ id: eq.id, nombre: eq.nombre, clave: eq.claveCompeticion! }))
 
     void (async () => {

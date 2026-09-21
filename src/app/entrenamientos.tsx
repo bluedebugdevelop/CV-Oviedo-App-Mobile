@@ -11,7 +11,8 @@
 // ==========================================================================
 
 import { Ionicons } from '@expo/vector-icons'
-import { useEffect, useState } from 'react'
+import { useLocalSearchParams } from 'expo-router'
+import { useEffect, useMemo, useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { CampoFecha } from '../componentes/CampoFecha'
@@ -63,8 +64,22 @@ const SEDE_CLUB = 'Polideportivo José Manuel Fuente (Colloto)'
 
 export default function Entrenamientos() {
   const sesion = useSesion()
-  const { equipoActivo, perfil } = sesion
-  const puede = mandaAqui(sesion, equipoActivo)
+  const { equipos, equipoActivo, perfil } = sesion
+
+  /* A qué equipo se le toca el horario.
+
+     Viene en la ruta (`/entrenamientos?equipo=<id>`) desde que la pantalla de
+     equipo se abre por id. Antes dependía del «equipo activo» y quien entrena
+     a dos podía estar mirando el horario del cadete y editar el del juvenil.
+     Se admite entrar sin parámetro y entonces vale el activo, que es lo que
+     había antes. */
+  const { equipo: equipoPedido } = useLocalSearchParams<{ equipo?: string }>()
+  const equipoActual = useMemo(
+    () => equipos.find((eq) => eq.id === equipoPedido) ?? equipoActivo,
+    [equipos, equipoPedido, equipoActivo],
+  )
+
+  const puede = mandaAqui(sesion, equipoActual)
 
   const [entrenos, setEntrenos] = useState<Entrenamiento[]>([])
   const [eventos, setEventos] = useState<Evento[]>([])
@@ -72,19 +87,19 @@ export default function Entrenamientos() {
   const [plantilla, setPlantilla] = useState<Usuario[]>([])
 
   useEffect(() => {
-    if (!equipoActivo) return
-    return escucharEntrenamientos(equipoActivo.id, setEntrenos)
-  }, [equipoActivo])
+    if (!equipoActual) return
+    return escucharEntrenamientos(equipoActual.id, setEntrenos)
+  }, [equipoActual])
 
   useEffect(() => {
-    if (!equipoActivo) return
-    return escucharEventos(equipoActivo.id, setEventos)
-  }, [equipoActivo])
+    if (!equipoActual) return
+    return escucharEventos(equipoActual.id, setEventos)
+  }, [equipoActual])
 
   useEffect(() => {
-    if (!equipoActivo) return
-    return escucharUsuariosDeEquipo(equipoActivo.id, setPlantilla)
-  }, [equipoActivo])
+    if (!equipoActual) return
+    return escucharUsuariosDeEquipo(equipoActual.id, setPlantilla)
+  }, [equipoActual])
 
   /* Avisar al equipo de un cambio de horario.
 
@@ -93,11 +108,11 @@ export default function Entrenamientos() {
      extra, y bloquear la pantalla por ella solo conseguiría que el
      entrenador dudara de si el cambio se guardó. */
   const avisar = (detalle: string) => {
-    if (!equipoActivo || !perfil) return
-    void avisarHorario(equipoActivo, plantilla, perfil, detalle)
+    if (!equipoActual || !perfil) return
+    void avisarHorario(equipoActual, plantilla, perfil, detalle)
   }
 
-  if (!equipoActivo || !puede) {
+  if (!equipoActual || !puede) {
     return (
       <Pantalla titulo="Horario" atras>
         <Banda tono="error">
@@ -114,7 +129,7 @@ export default function Entrenamientos() {
         text: 'Quitar',
         style: 'destructive',
         onPress: () => {
-          void borrarEntrenamiento(equipoActivo!.id, x.id).catch(() => {})
+          void borrarEntrenamiento(equipoActual!.id, x.id).catch(() => {})
           avisar(`Se quita el entrenamiento de los ${DIAS[x.dia].toLowerCase()} (${x.inicio}–${x.fin})`)
         },
       },
@@ -128,7 +143,7 @@ export default function Entrenamientos() {
         text: 'Quitar',
         style: 'destructive',
         onPress: () => {
-          void borrarEvento(equipoActivo!.id, ev.id).catch(() => {})
+          void borrarEvento(equipoActual!.id, ev.id).catch(() => {})
           avisar(`Se anula: ${ev.titulo}`)
         },
       },
@@ -136,7 +151,7 @@ export default function Entrenamientos() {
   }
 
   return (
-    <Pantalla ante={equipoActivo.nombre} titulo="Horario y citas" atras>
+    <Pantalla ante={equipoActual.nombre} titulo="Horario y citas" atras>
       <Franja titulo="Entrenamientos" />
       <Secundario>Se repiten todas las semanas. Tu equipo los ve en su pantalla de equipo.</Secundario>
 
@@ -163,7 +178,7 @@ export default function Entrenamientos() {
 
               <Pressable
                 onPress={() => {
-                  void actualizarEntrenamiento(equipoActivo.id, x.id, { activo: !x.activo })
+                  void actualizarEntrenamiento(equipoActual.id, x.id, { activo: !x.activo })
                   // Para el equipo esto no es «ocultar una fila»: es que ese
                   // día se suspende el entrenamiento, o que vuelve.
                   avisar(
@@ -198,7 +213,7 @@ export default function Entrenamientos() {
         )}
       </View>
 
-      <NuevoEntrenamiento equipoId={equipoActivo.id} alAvisar={avisar} />
+      <NuevoEntrenamiento equipoId={equipoActual.id} alAvisar={avisar} />
 
       <Franja titulo="Citas sueltas" />
       <Secundario>
@@ -235,7 +250,7 @@ export default function Entrenamientos() {
         )}
       </View>
 
-      <NuevaCita equipoId={equipoActivo.id} alAvisar={avisar} />
+      <NuevaCita equipoId={equipoActual.id} alAvisar={avisar} />
     </Pantalla>
   )
 }
