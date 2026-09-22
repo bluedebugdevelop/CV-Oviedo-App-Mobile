@@ -87,16 +87,26 @@ export function Conversacion({
     }
   }, [])
 
-  useEffect(() => {
-    if (!equipo) return
-    const id = equipo.id
-    return escucharMensajes(id, (lista) => setRecibido({ equipoId: id, lista }))
-  }, [equipo])
+  /* Por `equipo?.id` y NO por `equipo`.
+
+     El objeto llega de un `onSnapshot` y es nuevo cada vez que cambia algo del
+     equipo —o cada vez que la sesión vuelve a suscribirse—, así que con el
+     objeto como dependencia el chat se desuscribía y se volvía a suscribir
+     solo, y cada vuelta repintaba la lista entera. Eso era el parpadeo. El id
+     es una cadena y solo cambia cuando de verdad se cambia de conversación. */
+  const idEquipo = equipo?.id ?? null
 
   useEffect(() => {
-    if (!equipo) return
-    return escucharUsuariosDeEquipo(equipo.id, setPlantilla)
-  }, [equipo])
+    if (!idEquipo) return
+    return escucharMensajes(idEquipo, (lista) =>
+      setRecibido({ equipoId: idEquipo, lista }),
+    )
+  }, [idEquipo])
+
+  useEffect(() => {
+    if (!idEquipo) return
+    return escucharUsuariosDeEquipo(idEquipo, setPlantilla)
+  }, [idEquipo])
 
   /* Mientras esta pantalla esté delante, los mensajes de ESTE equipo no
      suenan: se están viendo llegar. Es lo que hace cualquier app de
@@ -105,9 +115,9 @@ export function Conversacion({
      Se apunta al montar y se borra al salir. El manejador que lo consulta
      vive fuera de React, de ahí el módulo suelto (lib/foco.ts). */
   useEffect(() => {
-    ponerChatAbierto(equipo?.id ?? null)
+    ponerChatAbierto(idEquipo)
     return () => ponerChatAbierto(null)
-  }, [equipo])
+  }, [idEquipo])
 
   /* Visto.
 
@@ -116,12 +126,22 @@ export function Conversacion({
      no tiene sentido que la bandeja lo cuente como nuevo al salir.
 
      Un fallo aquí no se enseña: como mucho el globito tarda un rato más en
-     apagarse, y no hay nada que la persona pueda hacer al respecto. */
+     apagarse, y no hay nada que la persona pueda hacer al respecto.
+
+     OJO CON LAS DEPENDENCIAS: aquí había un bucle infinito de escrituras.
+     `marcarChatLeido` escribe `lecturasChat` en la ficha propia; la ficha se
+     escucha con `onSnapshot`, así que vuelve como un objeto `perfil` NUEVO;
+     y con `perfil` en las dependencias eso disparaba el efecto otra vez, que
+     volvía a escribir, y así sin parar mientras la conversación estuviera
+     abierta. Se depende del `uid`, que es una cadena y no cambia, y del último
+     mensaje, que es lo que de verdad justifica volver a marcar. */
   const ultimoId = mensajes[0]?.id ?? null
+  const uid = perfil?.uid ?? null
+
   useEffect(() => {
-    if (!equipo || !perfil) return
-    void marcarChatLeido(perfil.uid, equipo.id).catch(() => {})
-  }, [equipo, perfil, ultimoId])
+    if (!idEquipo || !uid) return
+    void marcarChatLeido(uid, idEquipo).catch(() => {})
+  }, [idEquipo, uid, ultimoId])
 
   async function mandar() {
     const texto = borrador.trim()

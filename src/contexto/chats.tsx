@@ -185,25 +185,34 @@ export function ProveedorChats({ children }: { children: ReactNode }) {
      prohibido —un render no puede depender de algo que cambia por fuera de
      React— y escribir en Firestore al pintar dispararía una escritura por
      render durante el rato que el perfil tarda en volver con el dato puesto. */
+  /* `uid` y `lecturas` sueltos, no el `perfil` entero.
+
+     Este efecto ESCRIBE en la ficha propia, y la ficha se escucha: con
+     `perfil` en las dependencias, cada escritura lo devolvía como objeto nuevo
+     y volvía a disparar el efecto. El `estrenados` cortaba el bucle de
+     escrituras, pero no el de renders. */
+  const uid = perfil?.uid ?? null
+  const lecturas = perfil?.lecturasChat
+
   useEffect(() => {
-    if (!perfil) return
+    if (!uid) return
     const crudos = recibido.firma === firmaIds ? recibido.datos : {}
 
     for (const id of ids) {
       // Solo con el chat ya cargado: sin haber visto los mensajes no se sabe
       // si hay algo que marcar, y la marca es irreversible.
       if (!crudos[id]) continue
-      if (perfil.lecturasChat?.[id]) continue
+      if (lecturas?.[id]) continue
       if (estrenados.current.has(id)) continue
 
       estrenados.current.add(id)
-      void marcarChatLeido(perfil.uid, id).catch(() => {
+      void marcarChatLeido(uid, id).catch(() => {
         // Si no se pudo, se reintenta en el siguiente arranque. Lo peor que
         // pasa es que el globito tarde en encenderse.
         estrenados.current.delete(id)
       })
     }
-  }, [perfil, ids, firmaIds, recibido])
+  }, [uid, lecturas, ids, firmaIds, recibido])
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>
 }

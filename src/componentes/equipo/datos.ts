@@ -33,20 +33,29 @@ export function useDatosEquipo(equipoId: string | null | undefined) {
   const [eventos, setEventos] = useState<Evento[]>([])
   const [plantilla, setPlantilla] = useState<Usuario[]>([])
 
-  useEffect(() => {
-    if (!equipo) return
-    return escucharEntrenamientos(equipo.id, setEntrenamientos)
-  }, [equipo])
+  /* Las tres suscripciones van por el ID, no por el objeto `Equipo`.
+
+     El objeto viene de un `onSnapshot` de la sesión y es nuevo cada vez que se
+     refresca algo del club. Con el objeto como dependencia, las tres se
+     desmontaban y se volvían a montar solas en bucle —y esta pantalla monta
+     una copia POR CADA equipo de la lista—, que es de donde salía el parpadeo
+     y, con varios equipos, la avalancha de lecturas. */
+  const id = equipo?.id ?? null
 
   useEffect(() => {
-    if (!equipo) return
-    return escucharEventos(equipo.id, setEventos)
-  }, [equipo])
+    if (!id) return
+    return escucharEntrenamientos(id, setEntrenamientos)
+  }, [id])
 
   useEffect(() => {
-    if (!equipo) return
-    return escucharUsuariosDeEquipo(equipo.id, setPlantilla)
-  }, [equipo])
+    if (!id) return
+    return escucharEventos(id, setEventos)
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    return escucharUsuariosDeEquipo(id, setPlantilla)
+  }, [id])
 
   const competicion = useCompeticion(equipo?.claveCompeticion ?? null)
 

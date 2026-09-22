@@ -91,11 +91,16 @@ export function ListaAvisos({
   const mando = mandaAqui(sesion, equipo)
   const avisos = avisosDe(equipo?.id)
 
+  /* Por id y no por objeto: ver el mismo comentario en `Conversacion`.
+     Con el objeto como dependencia esto se resuscribía solo cada vez que la
+     sesión refrescaba los equipos, y la lista parpadeaba. */
+  const idEquipo = equipo?.id ?? null
+
   const [plantilla, setPlantilla] = useState<Usuario[]>([])
   useEffect(() => {
-    if (!equipo || !mando) return
-    return escucharUsuariosDeEquipo(equipo.id, setPlantilla)
-  }, [equipo, mando])
+    if (!idEquipo || !mando) return
+    return escucharUsuariosDeEquipo(idEquipo, setPlantilla)
+  }, [idEquipo, mando])
 
   if (!equipo) {
     return (

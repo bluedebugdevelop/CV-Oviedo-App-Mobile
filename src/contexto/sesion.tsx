@@ -152,11 +152,29 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     })
   }, [cuenta, expulsar])
 
-  // --- los equipos ---
-  // Se suscribe siempre, también sin perfil: con la lista de ids vacía,
-  // `escucharEquiposPorId` emite [] y devuelve un corte que no hace nada. Así
-  // no hay que vaciar el estado a mano desde el efecto.
-  useEffect(() => escucharEquiposPorId(perfil?.equipos ?? [], setTodosSusEquipos), [perfil])
+  /* --- los equipos ---
+
+     La dependencia es la LISTA DE IDS en texto, no el perfil entero, y eso no
+     es una micro-optimización: es lo que impide una tormenta.
+
+     El perfil llega de un `onSnapshot`, así que es un objeto nuevo cada vez que
+     cambia CUALQUIER campo suyo — y uno de esos campos es `lecturasChat`, que
+     la app escribe sola cada vez que alguien mira un chat. Con `[perfil]` como
+     dependencia, esa escritura volvía a montar los listeners de TODOS los
+     equipos, que devolvían objetos `Equipo` nuevos, que hacían resuscribirse a
+     todo lo que dependiera de ellos. Con la app abierta en el chat eso era un
+     parpadeo constante y una cascada de lecturas de Firestore.
+
+     Los ids solo cambian cuando el club mete o saca a alguien de un equipo,
+     que es exactamente cuando hay que volver a suscribirse. */
+  const idsEquipos = (perfil?.equipos ?? []).join(',')
+  // Para los efectos que solo necesitan saber SI hay alguien dentro.
+  const hayPerfil = perfil !== null
+
+  useEffect(
+    () => escucharEquiposPorId(idsEquipos ? idsEquipos.split(',') : [], setTodosSusEquipos),
+    [idsEquipos],
+  )
 
   /* Los equipos ARCHIVADOS no salen de aquí.
 
@@ -183,13 +201,26 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
 
      Solo los equipos con competición federada: los demás no tienen
      calendario que se pueda mover. */
-  useEffect(() => {
-    if (!perfil) return
+  // `equipos` ya viene sin archivados; aquí solo se filtra por competición.
+  const vigilados = useMemo(
+    () =>
+      equipos
+        .filter((eq) => eq.claveCompeticion)
+        .map((eq) => ({ id: eq.id, nombre: eq.nombre, clave: eq.claveCompeticion! })),
+    [equipos],
+  )
 
-    // `equipos` ya viene sin archivados; aquí solo se filtra por competición.
-    const vigilados = equipos
-      .filter((eq) => eq.claveCompeticion)
-      .map((eq) => ({ id: eq.id, nombre: eq.nombre, clave: eq.claveCompeticion! }))
+  /* La dependencia es una FIRMA en texto de lo que se va a escribir.
+
+     Igual que con los ids de los equipos: `equipos` y `perfil` son objetos
+     nuevos cada vez que llega un snapshot, así que con ellos como dependencia
+     esto reescribía el almacén y volvía a registrar la tarea de fondo en cada
+     refresco del club. Con la firma solo se toca cuando de verdad cambia la
+     lista de equipos vigilados o alguno de sus nombres. */
+  const firmaVigilados = vigilados.map((v) => `${v.id}:${v.clave}`).join('|')
+
+  useEffect(() => {
+    if (!hayPerfil) return
 
     void (async () => {
       await ponerEquiposVigilados(vigilados)
@@ -198,7 +229,10 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       if (vigilados.length > 0) await vigilarCalendario()
       else await dejarDeVigilar()
     })()
-  }, [perfil, equipos])
+    // `vigilados` se deja fuera a propósito: `firmaVigilados` lo resume, y
+    // meterlo devolvería el efecto a dispararse con cada objeto nuevo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hayPerfil, firmaVigilados])
 
   // --- notificaciones ---
   const registrarPush = useCallback(async (quien: Usuario) => {

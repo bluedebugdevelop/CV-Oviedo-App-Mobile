@@ -16,13 +16,14 @@
 // ==========================================================================
 
 import { Ionicons } from '@expo/vector-icons'
-import { Redirect, router } from 'expo-router'
+import { router } from 'expo-router'
 import { useMemo } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { Monograma } from '../../componentes/Bandeja'
 import { Pantalla } from '../../componentes/Pantalla'
 import { proximoPartido, useDatosEquipo } from '../../componentes/equipo/datos'
+import { ResumenEquipo } from '../../componentes/equipo/Resumen'
 import { Etiqueta, Vacio } from '../../componentes/ui'
 import { useSesion } from '../../contexto/sesion'
 import { relativoDia } from '../../lib/fechas'
@@ -49,12 +50,13 @@ export default function MisEquipos() {
     )
   }
 
-  /* Un solo equipo: directo a su pantalla, sin lista de una fila.
+  /* Un solo equipo: su resumen aquí mismo, sin lista de una fila.
 
-     `Redirect` y no `router.push`: sustituye esta pantalla en vez de apilarse
-     encima, así que el botón de volver de Android no devuelve a una lista que
-     no tenía nada que elegir. */
-  if (mios.length === 1) return <Redirect href={`/equipo/${mios[0].id}`} />
+     Se PINTA dentro de la pestaña, no se redirige a la otra ruta. Redirigir
+     sacaba del navegador de pestañas y la barra de abajo desaparecía nada más
+     entrar, sin forma de volver. Es la misma solución que ya usaban Chat y
+     Avisos para su caso de un solo equipo. */
+  if (mios.length === 1) return <ResumenEquipo equipoId={mios[0].id} />
 
   return (
     <Pantalla ante="Tus equipos" titulo="Mi equipo">

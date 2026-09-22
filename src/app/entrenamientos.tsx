@@ -79,6 +79,14 @@ export default function Entrenamientos() {
     [equipos, equipoPedido, equipoActivo],
   )
 
+  /* El id suelto, para las suscripciones.
+
+     Las dependencias de los efectos van por aquí y no por el objeto: el objeto
+     `Equipo` llega de un `onSnapshot` y es nuevo cada vez que la sesión
+     refresca los equipos, así que con él como dependencia los listeners se
+     desmontaban y se volvían a montar solos en bucle. */
+  const idEquipo = equipoActual?.id ?? null
+
   const puede = mandaAqui(sesion, equipoActual)
 
   const [entrenos, setEntrenos] = useState<Entrenamiento[]>([])
@@ -87,19 +95,19 @@ export default function Entrenamientos() {
   const [plantilla, setPlantilla] = useState<Usuario[]>([])
 
   useEffect(() => {
-    if (!equipoActual) return
-    return escucharEntrenamientos(equipoActual.id, setEntrenos)
-  }, [equipoActual])
+    if (!idEquipo) return
+    return escucharEntrenamientos(idEquipo, setEntrenos)
+  }, [idEquipo])
 
   useEffect(() => {
-    if (!equipoActual) return
-    return escucharEventos(equipoActual.id, setEventos)
-  }, [equipoActual])
+    if (!idEquipo) return
+    return escucharEventos(idEquipo, setEventos)
+  }, [idEquipo])
 
   useEffect(() => {
-    if (!equipoActual) return
-    return escucharUsuariosDeEquipo(equipoActual.id, setPlantilla)
-  }, [equipoActual])
+    if (!idEquipo) return
+    return escucharUsuariosDeEquipo(idEquipo, setPlantilla)
+  }, [idEquipo])
 
   /* Avisar al equipo de un cambio de horario.
 

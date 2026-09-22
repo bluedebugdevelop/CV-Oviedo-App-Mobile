@@ -59,20 +59,37 @@ por equipo. Los tres niveles son jugador / entrenador / administrador.
 
 **El chat y los avisos escuchan TODOS los equipos, no el «equipo activo».**
 `contexto/chats`, `contexto/avisos` y `contexto/agenda` se suscriben a cada
-equipo de la persona y viven en la raíz (`app/_layout.tsx`), no dentro de las
-pestañas: las conversaciones y los avisos de un equipo tienen pantalla propia
-fuera de `(app)`. El patrón de los tres es el mismo y hay que respetarlo —lo
-guardado va junto con la firma de los equipos de los que es, y si no coincide se
-descarta **al pintar**—. Vaciar el estado desde el efecto enseña un fotograma de
-datos de un equipo del que ya se ha salido, y además el linter lo rechaza.
+equipo de la persona y viven en la raíz (`app/_layout.tsx`), no en las pestañas.
+Los tres siguen el mismo patrón: lo guardado va junto con la firma de los
+equipos de los que es, y si no coincide se descarta **al pintar**. Vaciarlo
+desde el efecto enseña un fotograma de un equipo del que ya se ha salido, y el
+linter lo rechaza.
 
-**Ya no hay «equipo activo».** Las tres pestañas de equipo —Equipo, Chat y
-Avisos— son una lista cuando hay varios y entran directas cuando hay uno, y todo
-lo demás se abre por ruta con el id dentro (`/equipo/[equipoId]/[seccion]`,
-`/chat/[equipoId]`, `/avisos/[equipoId]`, `/aviso-nuevo?equipo=`,
-`/entrenamientos?equipo=`). `equipoActivo` sobrevive solo como respaldo para
-quien entre sin parámetro. Es lo que evita que quien entrena a dos mande el
-aviso —o edite el horario— del equipo equivocado.
+**Ya no hay «equipo activo».** Equipo, Chat y Avisos son una lista cuando hay
+varios y entran directas cuando hay uno; el resto se abre por ruta con el id
+dentro (`/equipo/[equipoId]/[seccion]`, `/chat/[equipoId]`,
+`/avisos/[equipoId]`, `/aviso-nuevo?equipo=`, `/entrenamientos?equipo=`).
+`equipoActivo` solo sobrevive como respaldo. Evita que quien entrena a dos mande
+el aviso —o edite el horario— del equipo equivocado.
+
+**Un efecto NUNCA depende de un objeto que venga de un `onSnapshot`.** Ni de
+`equipo`, ni de `perfil`, ni de `equipos`: Firestore devuelve objetos nuevos en
+cada snapshot, así que como dependencia valen lo mismo que no poner ninguna. Se
+depende del `id`, del `uid` o de una firma en texto (`ids.join(',')`).
+
+Costó una versión entera. `marcarChatLeido` escribe `lecturasChat` en la ficha
+propia → la ficha se escucha → vuelve un `perfil` nuevo → el efecto que marca
+como leído se disparaba otra vez → escribía otra vez. Un bucle infinito de
+escrituras a Firestore mientras el chat estuviera abierto. Y de rebote, como el
+efecto de los equipos dependía de `perfil`, cada vuelta volvía a suscribir los
+listeners de TODOS los equipos, que devolvían `Equipo` nuevos, que hacían
+resuscribirse a todo lo demás. Eso era el parpadeo.
+
+**Una pestaña no redirige fuera del grupo `(app)`.** Cuando hay un solo equipo,
+la pestaña PINTA el componente (`<ResumenEquipo …/>`), no hace `Redirect` a
+`/equipo/[id]`. Redirigir desmonta el navegador de pestañas: desaparece la barra
+de abajo y el botón de atrás se sale de la app. Chat y Avisos hacen lo mismo con
+`<Conversacion>` y `<ListaAvisos>`.
 
 **Los equipos archivados se filtran UNA vez, en `contexto/sesion`.** `equipos`
 sale de ahí ya sin ellos. Antes lo filtraba cada consumidor por su cuenta y el
@@ -82,22 +99,19 @@ de esta. La administración sigue viéndolos con `escucharTodosLosEquipos`.
 
 **Las cuatro secciones del equipo no van en un control segmentado.**
 «Clasificación» no cabe en un cuarto de pantalla y salía cortada. Son tarjetas
-en rejilla de dos en dos (`app/equipo/[equipoId]/index.tsx`), cada una con el
-dato que resume lo que hay dentro, y cada sección se abre entera.
+en rejilla de dos en dos, cada una con el dato que resume lo que hay dentro.
 
-**`lib/semana.ts` y `lib/web/partidos.ts` no pueden importar nada de Expo.** Son
-lógica pura y se prueban en Node sin bundler (`npm run pruebas:semana`). Por eso
-`partidos.ts` está separado de `competicion.ts`, que sí arrastra el cliente HTTP
-y con él `expo-constants`. Tampoco vale sintaxis de TypeScript que genere código
-(las *parameter properties* del constructor): Node solo quita tipos.
+**`lib/semana.ts` y `lib/web/partidos.ts` no importan nada de Expo.** Son lógica
+pura y se prueban en Node sin bundler (`npm run pruebas:semana`). Por eso
+`partidos.ts` está separado de `competicion.ts`, que arrastra el cliente HTTP y
+con él `expo-constants`. Tampoco vale sintaxis de TypeScript que genere código
+(*parameter properties*): Node solo quita tipos.
 
-**El AAB de Play va SIN `-PreactNativeArchitectures`.** Ese parámetro está en
-`npm run apk` para que el APK que se pasa a mano no pese de más, y ahí no hace
-daño. En el bundle sí: recorta el AAB a las ABIs que se listen y deja fuera a
-los móviles de 32 bits (`armeabi-v7a`), que Play ya no podría servir. Se
-comprueba en un segundo:
-`unzip -l entregas/CVOviedo-*.aab | grep -o "base/lib/[a-z0-9_-]*" | sort -u`
-tiene que dar cuatro líneas.
+**El AAB de Play va SIN `-PreactNativeArchitectures`** (usa `npm run bundle`).
+Ese parámetro está en `npm run apk` para que el APK que se pasa a mano no pese
+de más; en el bundle recorta las ABIs y deja fuera los móviles de 32 bits.
+Comprobar: `unzip -l entregas/CVOviedo-*.aab | grep -o "base/lib/[a-z0-9_-]*" |
+sort -u` tiene que dar cuatro líneas.
 
 **Depende de la web del club** (`bluedebugdevelop/ClubVoleibolOviedoWeb`) para
 noticias y datos de competición. Si cambia el formato de `competicion.json` allí,
