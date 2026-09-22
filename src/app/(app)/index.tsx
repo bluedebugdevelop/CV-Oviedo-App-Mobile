@@ -1,12 +1,17 @@
 // ==========================================================================
 // Inicio.
 //
-// Lo que alguien quiere saber al abrir la app en diez segundos: si hay algún
-// aviso sin leer, cuándo es el próximo partido y qué se cuenta en el club.
+// Lo que alguien quiere saber al abrir la app en diez segundos: qué tiene esta
+// semana, si hay algún aviso sin leer y qué se cuenta en el club.
 //
-// El orden no es casual. Primero lo que le pide algo (avisos), luego lo suyo
-// (el partido), y al final lo del club (noticias). Las noticias son lo que más
-// bonito queda y lo que menos urge, así que van abajo.
+// El orden no es casual. Primero SU semana —entrenamientos y partidos de todos
+// sus equipos, que es la razón por la que se abre la app un martes a las ocho—,
+// luego lo que le pide algo (avisos) y al final lo del club (noticias). Las
+// noticias son lo que más bonito queda y lo que menos urge, así que van abajo.
+//
+// El planning está arriba del todo y es lo primero que se ve. Antes esta
+// pantalla abría con el próximo partido del equipo activo, que para quien
+// dobla categoría era el de uno de sus dos equipos, elegido por la app.
 // ==========================================================================
 
 import { Ionicons } from '@expo/vector-icons'
@@ -16,7 +21,9 @@ import { useMemo } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { Pantalla } from '../../componentes/Pantalla'
+import { SemanaPlanning } from '../../componentes/SemanaPlanning'
 import { Banda, Boton, Cargando, Etiqueta, Franja, Tarjeta, Vacio } from '../../componentes/ui'
+import { useAgenda } from '../../contexto/agenda'
 import { useAvisos } from '../../contexto/avisos'
 import { useSesion } from '../../contexto/sesion'
 import { urlWeb } from '../../lib/config'
@@ -30,6 +37,7 @@ import { color, espacio, radio, sombra } from '../../tema'
 export default function Inicio() {
   const { perfil, equipoActivo, equipos } = useSesion()
   const { noLeidos } = useAvisos()
+  const agenda = useAgenda()
   const contenido = useContenido()
   const competicion = useCompeticion(equipoActivo?.claveCompeticion ?? null)
 
@@ -52,11 +60,21 @@ export default function Inicio() {
       ante={saludo()}
       titulo={nombreCorto || 'Club Voleibol Oviedo'}
       refrescando={contenido.refrescando}
-      alRefrescar={contenido.recargar}
+      alRefrescar={() => {
+        contenido.recargar()
+        // El planning vive de los mismos calendarios federados: tirar hacia
+        // abajo en Inicio tiene que refrescarlo también, o la gente creería
+        // que el horario nuevo no ha llegado.
+        agenda.recargar()
+      }}
     >
-      {/* El selector de equipo NO va aquí: Inicio es la pantalla del club
-          —noticias, lo que viene— y no la de ningún equipo en concreto. Se
-          cambia de equipo en las pestañas que sí son suyas. */}
+      {/* --- la semana ---
+
+          Aquí no hay selector de equipo, y no por descuido: el planning junta
+          lo de TODOS los equipos de la persona en la misma línea de tiempo. Un
+          selector partiría en dos justo lo que se quiere ver junto. */}
+      {equipos.length > 0 ? <SemanaPlanning /> : null}
+
       {equipos.length === 0 ? (
         <Banda tono="ojo">
           Todavía no estás en ningún equipo. En cuanto el club te asigne uno verás aquí su

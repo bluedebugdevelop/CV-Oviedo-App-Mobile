@@ -173,6 +173,33 @@ describe('usuarios', () => {
     )
   })
 
+  it('un jugador puede apuntar que ha visto el chat de su equipo', async () => {
+    await assertSucceeds(
+      updateDoc(doc(como(JUGADOR), 'usuarios', JUGADOR), {
+        [`lecturasChat.${EQUIPO}`]: new Date(),
+      }),
+    )
+  })
+
+  it('NO se cuela un ascenso a admin junto con la marca de lectura', async () => {
+    // El caso que justifica el `hasOnly` de la regla: dos campos en el mismo
+    // update, uno legítimo y otro no. Si pasara, sobraría el resto del fichero.
+    await assertFails(
+      updateDoc(doc(como(JUGADOR), 'usuarios', JUGADOR), {
+        [`lecturasChat.${EQUIPO}`]: new Date(),
+        roles: ['admin'],
+      }),
+    )
+  })
+
+  it('un jugador NO puede tocar la marca de lectura de otro', async () => {
+    await assertFails(
+      updateDoc(doc(como(JUGADOR), 'usuarios', ENTRENADOR), {
+        [`lecturasChat.${EQUIPO}`]: new Date(),
+      }),
+    )
+  })
+
   it('un jugador NO puede ascenderse a admin', async () => {
     await assertFails(updateDoc(doc(como(JUGADOR), 'usuarios', JUGADOR), { rol: 'admin' }))
   })

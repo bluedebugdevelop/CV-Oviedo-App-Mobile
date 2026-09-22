@@ -2,7 +2,7 @@
 // Las pestañas de abajo.
 //
 // Son cinco y las mismas para todo el mundo: Inicio, Equipo, Chat, Avisos y
-// Más. Lo que cambia según el rol no son las pestañas sino lo que hay dentro —
+// Mi perfil (que para un admin se llama Más). Lo que cambia según el rol no son las pestañas sino lo que hay dentro —
 // un entrenador ve el botón de crear aviso donde un jugador ve la lista, y las
 // pantallas de administración cuelgan de «Más».
 //
@@ -16,22 +16,53 @@ import { Tabs } from 'expo-router'
 import { StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { ProveedorAvisos, useAvisos } from '../../contexto/avisos'
+import { useAvisos } from '../../contexto/avisos'
+import { useChats } from '../../contexto/chats'
+import { useSesion } from '../../contexto/sesion'
+import { esAdmin } from '../../lib/firebase/modelo'
 import { color } from '../../tema'
 
-/** El globito rojo con el número de avisos sin leer. */
-function Globo({ n }: { n: number }) {
+/**
+ * El globito rojo de la barra: cuántos mensajes o avisos hay sin leer.
+ *
+ * Lo llevan Chat y Avisos, y cuentan TODOS los equipos de la persona, no el
+ * que se esté mirando (ver `contexto/chats` y `contexto/avisos`). Es la única
+ * forma de enterarse de que hay algo nuevo en el otro equipo sin entrar a
+ * mirarlo.
+ *
+ * Hasta 99, el número exacto; por encima, «99+». Antes cortaba en «9+», que en
+ * un chat de equipo se alcanza en una conversación de media tarde y a partir
+ * de ahí dejaba de decir nada: «9+» es lo mismo para diez mensajes que para
+ * ciento veinte.
+ *
+ * El número cambia de ancho, así que el globo crece con él en vez de tener un
+ * tamaño fijo: con `minWidth` y relleno a los lados, una cifra queda redonda y
+ * tres quedan en cápsula, que es lo que hacen iOS y Android.
+ */
+function Globo({ n, que }: { n: number; que: string }) {
   if (n <= 0) return null
   return (
-    <View style={e.globo}>
-      <Text style={e.globoTexto}>{n > 9 ? '9+' : n}</Text>
+    <View
+      style={e.globo}
+      accessibilityRole="text"
+      accessibilityLabel={`${n} ${que} sin leer`}
+    >
+      <Text style={e.globoTexto} numberOfLines={1}>
+        {n > 99 ? '99+' : n}
+      </Text>
     </View>
   )
 }
 
 function Barra() {
   const { noLeidos } = useAvisos()
+  const { totalNoLeidos: mensajesNuevos } = useChats()
+  const { perfil } = useSesion()
   const bordes = useSafeAreaInsets()
+  // Para un jugador o un entrenador esa pestaña es su cuenta y poco más. Para
+  // un admin es además la puerta a toda la administración, y ahí «Mi perfil»
+  // se queda corto.
+  const admin = perfil ? esAdmin(perfil) : false
 
   return (
     <Tabs
@@ -78,8 +109,14 @@ function Barra() {
         name="chat"
         options={{
           title: 'Chat',
+          // El mismo globito que los avisos: ahora que la bandeja enseña todos
+          // los equipos, la pestaña puede decir si hay algo nuevo en CUALQUIERA
+          // de ellos sin tener que entrar a mirar.
           tabBarIcon: ({ color: c, size }) => (
-            <Ionicons name="chatbubbles" size={size} color={c} />
+            <View>
+              <Ionicons name="chatbubbles" size={size} color={c} />
+              <Globo n={mensajesNuevos} que="mensajes" />
+            </View>
           ),
         }}
       />
@@ -90,7 +127,7 @@ function Barra() {
           tabBarIcon: ({ color: c, size }) => (
             <View>
               <Ionicons name="notifications" size={size} color={c} />
-              <Globo n={noLeidos} />
+              <Globo n={noLeidos} que="avisos" />
             </View>
           ),
         }}
@@ -98,9 +135,13 @@ function Barra() {
       <Tabs.Screen
         name="mas"
         options={{
-          title: 'Más',
+          title: admin ? 'Más' : 'Mi perfil',
           tabBarIcon: ({ color: c, size }) => (
-            <Ionicons name="ellipsis-horizontal-circle" size={size} color={c} />
+            <Ionicons
+              name={admin ? 'ellipsis-horizontal-circle' : 'person-circle'}
+              size={size}
+              color={c}
+            />
           ),
         }}
       />
@@ -108,28 +149,39 @@ function Barra() {
   )
 }
 
+// Los proveedores de avisos y chats ya no se montan aquí, sino en la raíz
+// (`app/_layout.tsx`): las pantallas de conversación y de avisos de un equipo
+// viven fuera de las pestañas y necesitan los mismos datos.
 export default function DisposicionApp() {
-  return (
-    <ProveedorAvisos>
-      <Barra />
-    </ProveedorAvisos>
-  )
+  return <Barra />
 }
 
 const e = StyleSheet.create({
   globo: {
     position: 'absolute',
-    top: -4,
-    right: -9,
-    minWidth: 17,
-    height: 17,
-    borderRadius: 9,
-    paddingHorizontal: 4,
+    top: -6,
+    // Colgando del lado derecho del icono, no centrado sobre él.
+    left: 12,
+    minWidth: 19,
+    height: 19,
+    // La mitad del alto: con una cifra sale un círculo y con tres, una
+    // cápsula. Un radio fijo dejaría las esquinas raras en el caso ancho.
+    borderRadius: 9.5,
+    paddingHorizontal: 5,
     backgroundColor: color.rojo,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    // El aro blanco es lo que lo despega del icono de debajo; sin él, sobre un
+    // icono oscuro el globo parece parte del dibujo.
+    borderWidth: 2,
     borderColor: color.blanco,
   },
-  globoTexto: { color: color.blanco, fontSize: 10, fontWeight: '800' },
+  globoTexto: {
+    color: color.blanco,
+    fontSize: 10.5,
+    fontWeight: '800',
+    // Sin esto, Android le reserva alto de línea de sobra y el número queda
+    // descentrado hacia abajo dentro del círculo.
+    lineHeight: 13,
+  },
 })

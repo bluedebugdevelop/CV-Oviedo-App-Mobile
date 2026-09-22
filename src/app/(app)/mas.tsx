@@ -1,6 +1,6 @@
 // ==========================================================================
-// Más: el perfil de quien está dentro y las puertas a lo que no es del día a
-// día.
+// Mi perfil (Más, para un admin): la cuenta de quien está dentro y las puertas
+// a lo que no es del día a día.
 //
 // Es donde acaban las pantallas de entrenador y de administración. Podrían
 // haber sido pestañas propias, pero se usan de vez en cuando: un entrenador
@@ -13,8 +13,10 @@
 // ==========================================================================
 
 import { Ionicons } from '@expo/vector-icons'
+import Constants from 'expo-constants'
 import { router } from 'expo-router'
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { ActivityIndicator, Alert, AppState, Linking, StyleSheet, Text, View } from 'react-native'
 
 import { Pantalla } from '../../componentes/Pantalla'
 import { Banda, Etiqueta, Fila, Franja, Separador, Tarjeta } from '../../componentes/ui'
@@ -22,10 +24,64 @@ import { useSesion } from '../../contexto/sesion'
 import { WEB_BASE } from '../../lib/config'
 import { ChipsRoles } from '../../componentes/Roles'
 import { esAdmin, puedeEntrenar } from '../../lib/firebase/modelo'
+import { estadoPermisoPush, type EstadoPermisoPush } from '../../lib/push'
 import { color, espacio, radio } from '../../tema'
 
+const DETALLE_PERMISO: Record<EstadoPermisoPush, string> = {
+  activadas: 'Activadas en este móvil',
+  'sin-preguntar': 'Desactivadas · toca para activarlas',
+  denegadas: 'Desactivadas · toca para activarlas en los ajustes',
+  'no-disponible': 'Solo funcionan en un móvil real',
+}
+
+/**
+ * El permiso de notificaciones, leído del sistema y no de la sesión.
+ *
+ * Se vuelve a leer cada vez que la app pasa a primer plano: el caso normal es
+ * que la persona vaya a los ajustes del móvil, lo active y vuelva, y la fila
+ * tiene que enterarse sin salir de la pantalla. Si al volver ya hay permiso,
+ * se registra el token en ese momento — si no, los avisos no llegarían hasta
+ * el siguiente arranque.
+ */
+function usePermisoPush(activarPush: () => Promise<boolean>, avisoPush: string | null) {
+  const [permiso, setPermiso] = useState<EstadoPermisoPush | null>(null)
+
+  const releer = useCallback(
+    () =>
+      estadoPermisoPush().then((actual) => {
+        setPermiso(actual)
+        return actual
+      }),
+    [],
+  )
+
+  useEffect(() => {
+    let viva = true
+    const leer = () =>
+      void estadoPermisoPush().then((actual) => {
+        if (viva) setPermiso(actual)
+      })
+    leer()
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') leer()
+    })
+    return () => {
+      viva = false
+      sub.remove()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (permiso === 'activadas' && avisoPush) void activarPush()
+  }, [permiso, avisoPush, activarPush])
+
+  return { permiso, releer }
+}
+
 export default function Mas() {
-  const { perfil, equipos, salir, avisoPush } = useSesion()
+  const { perfil, equipos, salir, avisoPush, activarPush } = useSesion()
+  const { permiso, releer } = usePermisoPush(activarPush, avisoPush)
+  const [activando, setActivando] = useState(false)
   if (!perfil) return null
 
   const admin = esAdmin(perfil)
@@ -41,8 +97,43 @@ export default function Mas() {
     ])
   }
 
+  function abrirAjustes() {
+    Alert.alert(
+      'Notificaciones desactivadas',
+      'El móvil ya no deja volver a preguntar desde la app. Entra en los ajustes, toca «Notificaciones» y actívalas.',
+      [
+        { text: 'Ahora no', style: 'cancel' },
+        { text: 'Abrir ajustes', onPress: () => void Linking.openSettings() },
+      ],
+    )
+  }
+
+  async function alPulsarNotificaciones() {
+    if (activando || permiso === 'no-disponible') return
+    // Ya activadas: desde aquí solo se pueden ajustar (o quitar) en el sistema.
+    if (permiso === 'activadas') {
+      void Linking.openSettings()
+      return
+    }
+    if (permiso === 'denegadas') {
+      abrirAjustes()
+      return
+    }
+    setActivando(true)
+    try {
+      const ok = await activarPush()
+      const tras = await releer()
+      // Android deja de enseñar el diálogo a la segunda negativa, y entonces
+      // `requestPermissionsAsync` vuelve al instante con un «no» sin que la
+      // persona haya visto nada. Si pasa eso, el único camino son los ajustes.
+      if (!ok && tras === 'denegadas') abrirAjustes()
+    } finally {
+      setActivando(false)
+    }
+  }
+
   return (
-    <Pantalla ante="Tu cuenta" titulo="Más">
+    <Pantalla ante="Tu cuenta" titulo={admin ? 'Más' : 'Mi perfil'}>
       {/* --- quién eres --- */}
       <Tarjeta style={e.perfil}>
         <View style={e.avatar}>
@@ -77,7 +168,35 @@ export default function Mas() {
         </Tarjeta>
       ) : null}
 
-      {avisoPush ? (
+      {/* --- la cuenta --- */}
+      <Franja titulo="Cuenta" />
+      <Tarjeta style={e.lista}>
+        <Fila
+          icono="key-outline"
+          titulo="Cambiar contraseña"
+          detalle="Necesitas la actual, o te mandamos un correo"
+          onPress={() => router.push('/cambiar-clave')}
+        />
+        <Separador />
+        <Fila
+          icono={permiso === 'activadas' ? 'notifications' : 'notifications-off-outline'}
+          titulo="Notificaciones"
+          detalle={permiso ? DETALLE_PERMISO[permiso] : 'Comprobando…'}
+          tono={permiso === 'sin-preguntar' || permiso === 'denegadas' ? color.rojo : undefined}
+          onPress={permiso && permiso !== 'no-disponible' ? alPulsarNotificaciones : undefined}
+          derecha={
+            activando ? (
+              <ActivityIndicator size="small" color={color.azul} />
+            ) : permiso === 'activadas' ? (
+              <Ionicons name="checkmark-circle" size={20} color={color.verde} />
+            ) : undefined
+          }
+        />
+      </Tarjeta>
+
+      {/* El permiso ya lo explica la fila de arriba. Esto queda para los otros
+          motivos, los que no se arreglan desde el móvil (token, proyecto). */}
+      {avisoPush && permiso === 'activadas' ? (
         <View style={{ marginTop: espacio.lg }}>
           <Banda tono="ojo">
             No llegarán avisos al móvil con la app cerrada: {avisoPush}
@@ -165,7 +284,9 @@ export default function Mas() {
         />
       </Tarjeta>
 
-      <Text style={e.version}>Club Voleibol Oviedo · versión 1.0.0</Text>
+      <Text style={e.version}>
+        Club Voleibol Oviedo · versión {Constants.expoConfig?.version ?? '—'}
+      </Text>
     </Pantalla>
   )
 }

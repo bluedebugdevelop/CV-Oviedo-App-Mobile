@@ -1,59 +1,39 @@
 // ==========================================================================
-// Avisos.
+// La bandeja de avisos.
 //
-// Lo que el entrenador quiere que llegue seguro: convocatorias, cambios de
-// hora, «mañana traed rodilleras». A diferencia del chat, un aviso se marca
-// como leído y puede pedir confirmación de asistencia.
+// Misma idea y misma pinta que la de chats, a propósito: son las dos pantallas
+// donde la pregunta es «¿hay algo nuevo, y dónde?». Aprender una es aprender
+// la otra.
 //
-// Un aviso se da por leído al desplegarlo, no al abrir la pantalla. Si bastara
-// con entrar, el contador se vaciaría con solo mirar la lista y el entrenador
-// vería «leído por 15» sin que nadie lo hubiera abierto.
+// Antes tenía el mismo selector de equipos en pastillas que el chat, con el
+// mismo problema: quien está en dos equipos tenía que ir tocando para ver si
+// había una convocatoria esperando en el otro. Ahora el globito de la pestaña
+// cuenta los de TODOS los equipos (ver `contexto/avisos`) y esta lista dice en
+// cuál están.
+//
+// Con UN solo equipo se entra directo a sus avisos, sin lista intermedia.
 // ==========================================================================
 
-import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import { useEffect, useState } from 'react'
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useMemo } from 'react'
+import { FlatList } from 'react-native'
 
+import { FilaBandeja, SeparadorBandeja } from '../../componentes/Bandeja'
+import { ListaAvisos, PINTA } from '../../componentes/ListaAvisos'
 import { Pantalla } from '../../componentes/Pantalla'
-import { SelectorEquipo } from '../../componentes/SelectorEquipo'
-import { Boton, Cargando, Etiqueta, Tarjeta, Vacio } from '../../componentes/ui'
+import { Cargando, Vacio } from '../../componentes/ui'
 import { useAvisos } from '../../contexto/avisos'
-import { mandaAqui, useSesion } from '../../contexto/sesion'
+import { useSesion } from '../../contexto/sesion'
 import { aDate, desde } from '../../lib/fechas'
-import { borrarAviso, marcarLeido, responder } from '../../lib/firebase/avisos'
-import { escucharUsuariosDeEquipo } from '../../lib/firebase/usuarios'
-import type { Aviso, TipoAviso, Usuario } from '../../lib/firebase/modelo'
-import { color, espacio, radio } from '../../tema'
-
-const PINTA: Record<
-  TipoAviso,
-  { fondo: string; texto: string; icono: keyof typeof Ionicons.glyphMap; etiqueta: string }
-> = {
-  general: { fondo: color.tinte, texto: color.azulOscuro, icono: 'megaphone', etiqueta: 'AVISO' },
-  partido: { fondo: color.verdeTinte, texto: color.verde, icono: 'trophy', etiqueta: 'PARTIDO' },
-  entrenamiento: {
-    fondo: color.ambarTinte,
-    texto: '#8a5a00',
-    icono: 'fitness',
-    etiqueta: 'ENTRENAMIENTO',
-  },
-  urgente: { fondo: color.rojoTinte, texto: color.rojo, icono: 'alert-circle', etiqueta: 'URGENTE' },
-}
+import type { Aviso, Equipo } from '../../lib/firebase/modelo'
 
 export default function Avisos() {
-  const sesion = useSesion()
-  const { equipoActivo, perfil } = sesion
-  const { avisos, cargando } = useAvisos()
-  const mando = mandaAqui(sesion, equipoActivo)
+  const { equipos } = useSesion()
+  const { porEquipo, cargando } = useAvisos()
 
-  const [plantilla, setPlantilla] = useState<Usuario[]>([])
-  useEffect(() => {
-    if (!equipoActivo || !mando) return
-    return escucharUsuariosDeEquipo(equipoActivo.id, setPlantilla)
-  }, [equipoActivo, mando])
+  const activos = useMemo(() => equipos.filter((eq) => !eq.archivado), [equipos])
 
-  if (!equipoActivo) {
+  if (activos.length === 0) {
     return (
       <Pantalla titulo="Avisos">
         <Vacio
@@ -65,270 +45,57 @@ export default function Avisos() {
     )
   }
 
+  // Un solo equipo: sus avisos, sin pasar por una lista de un elemento.
+  if (activos.length === 1) return <ListaAvisos equipoId={activos[0].id} />
+
+  // Lo que reclama atención arriba y luego por lo más reciente, igual que en
+  // la bandeja de chats.
+  const ordenados = [...activos].sort((a, b) => {
+    const ra = porEquipo[a.id]
+    const rb = porEquipo[b.id]
+    const dif = (rb?.noLeidos ?? 0) - (ra?.noLeidos ?? 0)
+    if (dif !== 0) return dif
+    return (cuandoDe(rb?.ultimo) ?? 0) - (cuandoDe(ra?.ultimo) ?? 0)
+  })
+
   return (
-    <Pantalla
-      ante="Avisos del equipo"
-      titulo={equipoActivo.nombre}
-      accion={
-        mando
-          ? { icono: 'add-circle', alPulsar: () => router.push('/aviso-nuevo'), etiqueta: 'Nuevo aviso' }
-          : undefined
-      }
-    >
-      <SelectorEquipo />
-
-      {mando ? (
-        <Boton icono="megaphone" onPress={() => router.push('/aviso-nuevo')} ancho>
-          Mandar un aviso
-        </Boton>
-      ) : null}
-
-      <View style={{ height: espacio.lg }} />
-
-      {cargando ? (
+    <Pantalla ante="Tus equipos" titulo="Avisos" scroll={false}>
+      {cargando && Object.keys(porEquipo).length === 0 ? (
         <Cargando texto="Cargando avisos…" />
-      ) : avisos.length === 0 ? (
-        <Vacio
-          icono="notifications-off-outline"
-          titulo="Ningún aviso"
-          texto={
-            mando
-              ? 'Cuando mandes un aviso, le llegará a todo el equipo.'
-              : 'Tu entrenador todavía no ha mandado ningún aviso.'
-          }
-        />
       ) : (
-        <View style={{ gap: espacio.md }}>
-          {avisos.map((a) => (
-            <TarjetaAviso
-              key={a.id}
-              aviso={a}
-              uid={perfil!.uid}
-              equipoId={equipoActivo.id}
-              mando={mando}
-              plantilla={plantilla}
-              jugadoresDelEquipo={equipoActivo.jugadores}
-            />
-          ))}
-        </View>
+        <FlatList
+          data={ordenados}
+          keyExtractor={(eq) => eq.id}
+          ItemSeparatorComponent={SeparadorBandeja}
+          renderItem={({ item }) => <FilaAvisos equipo={item} />}
+        />
       )}
     </Pantalla>
   )
 }
 
-function TarjetaAviso({
-  aviso,
-  uid,
-  equipoId,
-  mando,
-  plantilla,
-  jugadoresDelEquipo,
-}: {
-  aviso: Aviso
-  uid: string
-  equipoId: string
-  mando: boolean
-  plantilla: Usuario[]
-  /** uid de quienes juegan en ESTE equipo, que son los convocables. */
-  jugadoresDelEquipo: string[]
-}) {
-  const [abierto, setAbierto] = useState(false)
-  const p = PINTA[aviso.tipo]
-  const noLeido = !aviso.leidoPor.includes(uid)
-  const cuando = aDate(aviso.creadoEn)
-
-  const voy = aviso.confirmados.includes(uid)
-  const noVoy = aviso.rechazados.includes(uid)
-
-  function desplegar() {
-    const siguiente = !abierto
-    setAbierto(siguiente)
-    if (siguiente && noLeido) void marcarLeido(equipoId, aviso.id, uid).catch(() => {})
-  }
-
-  function confirmarBorrado() {
-    Alert.alert('Borrar aviso', `¿Seguro que quieres borrar «${aviso.titulo}»?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Borrar',
-        style: 'destructive',
-        onPress: () => void borrarAviso(equipoId, aviso.id).catch(() => {}),
-      },
-    ])
-  }
-
-  // Solo cuentan los jugadores DE ESTE equipo: el entrenador no se convoca a
-  // sí mismo, y quien aquí entrena puede ser jugador en otro equipo.
-  const jugadores = plantilla.filter((x) => jugadoresDelEquipo.includes(x.uid))
-  const sinResponder = jugadores.filter(
-    (j) => !aviso.confirmados.includes(j.uid) && !aviso.rechazados.includes(j.uid),
-  )
+function FilaAvisos({ equipo }: { equipo: Equipo }) {
+  const { porEquipo } = useAvisos()
+  const resumen = porEquipo[equipo.id]
+  const ultimo = resumen?.ultimo ?? null
+  const cuando = aDate(ultimo?.creadoEn)
 
   return (
-    <Tarjeta style={noLeido ? e.sinLeer : undefined}>
-      <Pressable onPress={desplegar} accessibilityRole="button">
-        <View style={e.cabecera}>
-          <View style={[e.icono, { backgroundColor: p.fondo }]}>
-            <Ionicons name={p.icono} size={18} color={p.texto} />
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <View style={e.metaFila}>
-              <Etiqueta fondo={p.fondo} texto={p.texto}>
-                {p.etiqueta}
-              </Etiqueta>
-              {noLeido ? <View style={e.punto} /> : null}
-            </View>
-            <Text style={e.titulo}>{aviso.titulo}</Text>
-            <Text style={e.meta}>
-              {aviso.autorNombre}
-              {cuando ? ` · ${desde(cuando)}` : ''}
-            </Text>
-          </View>
-
-          <Ionicons
-            name={abierto ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color={color.linea}
-          />
-        </View>
-      </Pressable>
-
-      {abierto ? (
-        <View style={e.cuerpo}>
-          {aviso.cuerpo ? <Text style={e.texto}>{aviso.cuerpo}</Text> : null}
-
-          {aviso.requiereConfirmacion ? (
-            <View style={e.confirmacion}>
-              <Text style={e.confirmacionTitulo}>¿Vas a ir?</Text>
-              <View style={e.botonesConfirmar}>
-                <Pressable
-                  onPress={() => void responder(equipoId, aviso.id, uid, true).catch(() => {})}
-                  style={[e.respuesta, voy ? e.respuestaSi : null]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: voy }}
-                >
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={17}
-                    color={voy ? color.blanco : color.verde}
-                  />
-                  <Text style={[e.respuestaTexto, voy ? { color: color.blanco } : null]}>
-                    Voy
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => void responder(equipoId, aviso.id, uid, false).catch(() => {})}
-                  style={[e.respuesta, noVoy ? e.respuestaNo : null]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: noVoy }}
-                >
-                  <Ionicons
-                    name="close-circle"
-                    size={17}
-                    color={noVoy ? color.blanco : color.rojo}
-                  />
-                  <Text style={[e.respuestaTexto, noVoy ? { color: color.blanco } : null]}>
-                    No puedo
-                  </Text>
-                </Pressable>
-              </View>
-
-              {mando ? (
-                <View style={e.recuento}>
-                  <Text style={e.recuentoTexto}>
-                    <Text style={{ color: color.verde, fontWeight: '800' }}>
-                      {aviso.confirmados.length}
-                    </Text>{' '}
-                    van ·{' '}
-                    <Text style={{ color: color.rojo, fontWeight: '800' }}>
-                      {aviso.rechazados.length}
-                    </Text>{' '}
-                    no ·{' '}
-                    <Text style={{ fontWeight: '800' }}>{sinResponder.length}</Text> sin
-                    contestar
-                  </Text>
-                  {sinResponder.length > 0 ? (
-                    <Text style={e.pendientes} numberOfLines={3}>
-                      Falta: {sinResponder.map((x) => x.nombre.split(' ')[0]).join(', ')}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-
-          {mando ? (
-            <View style={e.pieMando}>
-              <Text style={e.meta}>Leído por {aviso.leidoPor.length}</Text>
-              <Pressable onPress={confirmarBorrado} hitSlop={8} accessibilityRole="button">
-                <Text style={e.borrar}>Borrar</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-    </Tarjeta>
+    <FilaBandeja
+      nombre={equipo.nombre}
+      detalle={`${equipo.categoria} · ${equipo.genero}`}
+      previa={ultimo ? ultimo.titulo : 'Ningún aviso todavía'}
+      // El icono del tipo delante de la vista previa: un «urgente» se ve sin
+      // abrir nada, que es de lo que va un aviso urgente.
+      icono={ultimo ? PINTA[ultimo.tipo].icono : undefined}
+      cuando={cuando ? desde(cuando) : null}
+      noLeidos={resumen?.noLeidos ?? 0}
+      onPress={() => router.push(`/avisos/${equipo.id}`)}
+    />
   )
 }
 
-const e = StyleSheet.create({
-  sinLeer: { borderColor: color.azul, borderWidth: 1.5 },
-  cabecera: { flexDirection: 'row', alignItems: 'flex-start', gap: espacio.md },
-  icono: {
-    width: 38,
-    height: 38,
-    borderRadius: radio.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metaFila: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm },
-  punto: { width: 8, height: 8, borderRadius: 4, backgroundColor: color.rojo },
-  titulo: { fontSize: 16, fontWeight: '700', color: color.tinta, marginTop: 4 },
-  meta: { fontSize: 12, color: color.apagado, marginTop: 2 },
-
-  cuerpo: {
-    marginTop: espacio.md,
-    paddingTop: espacio.md,
-    borderTopWidth: 1,
-    borderTopColor: color.linea,
-    gap: espacio.md,
-  },
-  texto: { fontSize: 15, color: color.tinta, lineHeight: 22 },
-
-  confirmacion: { gap: espacio.sm },
-  confirmacionTitulo: { fontSize: 13, fontWeight: '800', color: color.tinta },
-  botonesConfirmar: { flexDirection: 'row', gap: espacio.sm },
-  respuesta: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: radio.md,
-    borderWidth: 1,
-    borderColor: color.linea,
-    minHeight: 44,
-  },
-  respuestaSi: { backgroundColor: color.verde, borderColor: color.verde },
-  respuestaNo: { backgroundColor: color.rojo, borderColor: color.rojo },
-  respuestaTexto: { fontSize: 14, fontWeight: '700', color: color.tinta },
-
-  recuento: {
-    backgroundColor: color.fondo,
-    borderRadius: radio.md,
-    padding: espacio.md,
-    gap: 4,
-  },
-  recuentoTexto: { fontSize: 13, color: color.tinta },
-  pendientes: { fontSize: 12, color: color.apagado, lineHeight: 17 },
-
-  pieMando: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  borrar: { fontSize: 13, color: color.rojo, fontWeight: '700' },
-})
+const cuandoDe = (a: Aviso | null | undefined): number | null => {
+  const f = aDate(a?.creadoEn)
+  return f ? f.getTime() : null
+}

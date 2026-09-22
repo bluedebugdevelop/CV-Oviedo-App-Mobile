@@ -74,6 +74,8 @@ firebase-adminsdk*.json
 *-firebase-adminsdk-*.json
 
 # Materiales de la ficha de las tiendas: los PNG se regeneran con
-# `npm run tienda`. La descripción es texto escrito a mano y sí va al repo.
+# `npm run tienda` y las capturas con `npm run capturas`. Las descripciones son
+# texto escrito a mano y sí van al repo.
 /tienda/*.png
+/tienda/capturas/
 entregas/

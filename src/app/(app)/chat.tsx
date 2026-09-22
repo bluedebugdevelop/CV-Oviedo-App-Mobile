@@ -1,127 +1,43 @@
 // ==========================================================================
-// El chat del equipo.
+// La bandeja de chats.
 //
 // Un grupo por equipo, con el entrenador dentro. Sirve para lo del día a día
 // —«¿alguien lleva balones?»— y deja los avisos para lo que tiene que llegar
 // sí o sí.
 //
-// La lista va invertida: los datos llegan del más nuevo al más viejo y la
-// FlatList los pinta de abajo arriba. Es la forma de que un chat arranque
-// pegado al último mensaje sin medir alturas ni hacer scroll a mano después de
-// pintar, que es de donde salen los saltos y los parpadeos.
+// POR QUÉ UNA LISTA Y NO UN SELECTOR
+// Antes había un selector de equipos arriba: una fila de pastillas que había
+// que ir tocando una a una para descubrir dónde había algo nuevo. Quien juega
+// en dos categorías podía tener quince mensajes sin leer en la otra y no
+// enterarse. Una lista de conversaciones con su vista previa y su globito lo
+// dice todo de un vistazo, que es exactamente el problema que resolvió
+// WhatsApp hace quince años; no hacía falta inventar nada.
+//
+// Con UN solo equipo no se pinta la lista: la pestaña entra directa a la
+// conversación. Una bandeja de una fila es un toque de más para no dar a
+// elegir nada.
 // ==========================================================================
 
-import { Ionicons } from '@expo/vector-icons'
-import { useEffect, useRef, useState } from 'react'
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
+import { router } from 'expo-router'
+import { useMemo } from 'react'
+import { FlatList } from 'react-native'
+
+import { FilaBandeja, SeparadorBandeja } from '../../componentes/Bandeja'
+import { Conversacion } from '../../componentes/Conversacion'
 import { Pantalla } from '../../componentes/Pantalla'
-import { SelectorEquipo } from '../../componentes/SelectorEquipo'
-import { Vacio } from '../../componentes/ui'
+import { Cargando, Vacio } from '../../componentes/ui'
+import { useChats } from '../../contexto/chats'
 import { useSesion } from '../../contexto/sesion'
-import { aDate, selloChat } from '../../lib/fechas'
-import { LIMITE_MENSAJE, enviarMensaje, escucharMensajes } from '../../lib/firebase/chat'
-import type { Mensaje, Usuario } from '../../lib/firebase/modelo'
-import { avisarMensaje } from '../../lib/firebase/notificar'
-import { escucharUsuariosDeEquipo } from '../../lib/firebase/usuarios'
-import { ponerChatAbierto } from '../../lib/foco'
-import { color, espacio, radio } from '../../tema'
+import { aDate, desde } from '../../lib/fechas'
+import type { Equipo, Mensaje } from '../../lib/firebase/modelo'
 
 export default function Chat() {
-  const { equipoActivo, perfil } = useSesion()
+  const { equipos, perfil } = useSesion()
+  const { porEquipo, cargando } = useChats()
 
-  /* Igual que en el contexto de avisos: los mensajes viajan con el id del
-     equipo del que son. Al cambiar de equipo no se ve un fotograma de la
-     conversación anterior, que en un chat es de lo más desconcertante. */
-  const [recibido, setRecibido] = useState<{ equipoId: string | null; lista: Mensaje[] }>({
-    equipoId: null,
-    lista: [],
-  })
-  const [borrador, setBorrador] = useState('')
-  const [enviando, setEnviando] = useState(false)
-  // Para los tokens de quien tiene que recibir la notificación.
-  const [plantilla, setPlantilla] = useState<Usuario[]>([])
+  const activos = useMemo(() => equipos.filter((eq) => !eq.archivado), [equipos])
 
-  const alDia = recibido.equipoId === (equipoActivo?.id ?? null)
-  const mensajes = alDia ? recibido.lista : []
-  const cargando = Boolean(equipoActivo) && !alDia
-
-  // Para no dejar el campo bloqueado si el envío falla y el componente sigue
-  // vivo, pero tampoco escribir estado si ya se salió de la pantalla.
-  const montado = useRef(true)
-  useEffect(() => {
-    montado.current = true
-    return () => {
-      montado.current = false
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!equipoActivo) return
-    const id = equipoActivo.id
-    return escucharMensajes(id, (lista) => setRecibido({ equipoId: id, lista }))
-  }, [equipoActivo])
-
-  useEffect(() => {
-    if (!equipoActivo) return
-    return escucharUsuariosDeEquipo(equipoActivo.id, setPlantilla)
-  }, [equipoActivo])
-
-  /* Mientras esta pantalla esté delante, los mensajes de ESTE equipo no
-     suenan: se están viendo llegar. Es lo que hace cualquier app de
-     mensajería y sin ello escribir con el equipo es una ristra de pitidos.
-
-     Se apunta al montar y se borra al salir. El manejador que lo consulta
-     vive fuera de React, de ahí el módulo suelto (lib/foco.ts). */
-  useEffect(() => {
-    ponerChatAbierto(equipoActivo?.id ?? null)
-    return () => ponerChatAbierto(null)
-  }, [equipoActivo])
-
-  async function mandar() {
-    const texto = borrador.trim()
-    if (!texto || !equipoActivo || !perfil || enviando) return
-
-    setEnviando(true)
-    // Se vacía antes de que confirme el servidor: el mensaje ya aparece en la
-    // lista por el snapshot local de Firestore, así que se ve al instante.
-    setBorrador('')
-    try {
-      await enviarMensaje(
-        equipoActivo.id,
-        {
-          uid: perfil.uid,
-          nombre: perfil.nombre,
-          // El papel EN ESTE equipo, no los roles de club: quien entrena aquí
-          // y juega en el sénior sale como entrenador aquí y como jugador allí.
-          rol: equipoActivo.entrenadores.includes(perfil.uid) ? 'entrenador' : 'jugador',
-        },
-        texto,
-      )
-
-      /* El aviso al resto va DESPUÉS y sin esperarlo.
-
-         El mensaje ya está guardado y ya se ve en el chat de todos; que la
-         notificación salga o no es un extra. Esperarla solo conseguiría que
-         el campo se quedara bloqueado un segundo por algo que al que
-         escribe no le importa. */
-      void avisarMensaje(equipoActivo, plantilla, perfil, texto)
-    } catch {
-      // Si no se pudo mandar, se devuelve el texto al campo en vez de perderlo.
-      if (montado.current) setBorrador(texto)
-    } finally {
-      if (montado.current) setEnviando(false)
-    }
-  }
-
-  if (!equipoActivo) {
+  if (activos.length === 0) {
     return (
       <Pantalla titulo="Chat">
         <Vacio
@@ -133,181 +49,74 @@ export default function Chat() {
     )
   }
 
-  return (
-    <Pantalla ante="Chat del equipo" titulo={equipoActivo.nombre} scroll={false}>
-      <View style={e.marcoSelector}>
-        <SelectorEquipo />
-      </View>
+  // Un solo equipo: la conversación, sin pasar por una lista de un elemento.
+  if (activos.length === 1) return <Conversacion equipoId={activos[0].id} />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        // Mismo motivo que en Pantalla.tsx: con edge-to-edge la ventana no
-        // encoge, así que el relleno lo tiene que poner este componente.
-        behavior="padding"
-      >
+  /* Las conversaciones con novedades arriba, y luego por lo más reciente.
+
+     Es el orden de una bandeja de mensajería: lo que reclama atención primero
+     y el resto por antigüedad. Dejarlo en el orden fijo de los equipos haría
+     que un mensaje nuevo en el último de la lista siguiera saliendo el último. */
+  const ordenados = [...activos].sort((a, b) => {
+    const ra = porEquipo[a.id]
+    const rb = porEquipo[b.id]
+    const dif = (rb?.noLeidos ?? 0) - (ra?.noLeidos ?? 0)
+    if (dif !== 0) return dif
+    return (cuandoDe(rb?.ultimo) ?? 0) - (cuandoDe(ra?.ultimo) ?? 0)
+  })
+
+  // `scroll={false}`: la lista es la que desplaza. Anidarla dentro del
+  // ScrollView de `Pantalla` le quitaría el reciclado de filas.
+  return (
+    <Pantalla ante="Tus equipos" titulo="Chat" scroll={false}>
+      {cargando && Object.keys(porEquipo).length === 0 ? (
+        <Cargando texto="Cargando conversaciones…" />
+      ) : (
         <FlatList
-          data={mensajes}
-          inverted
-          keyExtractor={(m) => m.id}
-          contentContainerStyle={e.lista}
-          keyboardDismissMode="interactive"
-          renderItem={({ item, index }) => (
-            <Burbuja
-              m={item}
-              mio={item.autor === perfil?.uid}
-              // Invertida, el "anterior" en pantalla es el siguiente del array.
-              pegado={mensajes[index + 1]?.autor === item.autor}
-            />
+          data={ordenados}
+          keyExtractor={(eq) => eq.id}
+          ItemSeparatorComponent={SeparadorBandeja}
+          renderItem={({ item }) => (
+            <FilaChat equipo={item} uid={perfil?.uid ?? ''} />
           )}
         />
-
-        {/* Fuera de la FlatList a propósito.
-
-            Como `ListEmptyComponent`, el texto salía ESPEJADO. Una lista
-            invertida se dibuja dándole la vuelta a todo lo que lleva dentro, y
-            el componente de lista vacía no se libra. Se intentó compensar con
-            otro `scaleY: -1` encima, pero en React Native 0.86 el volteo no es
-            el que se suponía y quedaba al revés igualmente.
-
-            Sacarlo de la lista quita el problema de raíz en vez de pelearse con
-            transformaciones que dependen de la versión. */}
-        {!cargando && mensajes.length === 0 ? (
-          <View style={e.vacio} pointerEvents="none">
-            <Vacio
-              icono="chatbubble-ellipses-outline"
-              titulo="Todavía no hay mensajes"
-              texto="Escribe el primero. Lo verá todo el equipo y el entrenador."
-            />
-          </View>
-        ) : null}
-
-        {/* Sin `bordes.bottom` aquí.
-
-            El chat es una pestaña, y la barra de pestañas ya reserva el borde
-            seguro del móvil (ver `(app)/_layout.tsx`). Sumarlo otra vez dejaba
-            un vacío entre el campo de escribir y las pestañas: el mismo doble
-            margen que ya se quitó en `Pantalla.tsx`.
-
-            Con el teclado abierto tampoco hace falta: el teclado se pinta por
-            encima de la barra de gestos. */}
-        <View style={e.barra}>
-          <TextInput
-            value={borrador}
-            onChangeText={setBorrador}
-            placeholder="Escribe al equipo…"
-            placeholderTextColor={color.apagado}
-            multiline
-            maxLength={LIMITE_MENSAJE}
-            style={e.entrada}
-          />
-          <Pressable
-            onPress={mandar}
-            disabled={!borrador.trim() || enviando}
-            accessibilityRole="button"
-            accessibilityLabel="Enviar mensaje"
-            style={[e.enviar, !borrador.trim() || enviando ? e.enviarApagado : null]}
-          >
-            <Ionicons name="send" size={18} color={color.blanco} />
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+      )}
     </Pantalla>
   )
 }
 
-function Burbuja({ m, mio, pegado }: { m: Mensaje; mio: boolean; pegado: boolean }) {
-  const cuando = aDate(m.creadoEn)
+function FilaChat({ equipo, uid }: { equipo: Equipo; uid: string }) {
+  const { porEquipo } = useChats()
+  const resumen = porEquipo[equipo.id]
+  const ultimo = resumen?.ultimo ?? null
+  const cuando = aDate(ultimo?.creadoEn)
 
   return (
-    <View style={[e.fila, mio ? e.filaMia : null, pegado ? { marginTop: 2 } : null]}>
-      <View style={[e.burbuja, mio ? e.burbujaMia : null]}>
-        {/* El nombre solo en el primero de una tanda: repetirlo en cada
-            mensaje seguido del mismo autor llena la pantalla de ruido. */}
-        {!mio && !pegado ? (
-          <Text style={e.autor}>
-            {m.autorNombre}
-            {m.autorRol !== 'jugador' ? ' · entrenador' : ''}
-          </Text>
-        ) : null}
-
-        <Text style={[e.texto, mio ? e.textoMio : null]}>{m.texto}</Text>
-
-        <Text style={[e.hora, mio ? e.horaMia : null]}>
-          {cuando ? selloChat(cuando) : 'enviando…'}
-        </Text>
-      </View>
-    </View>
+    <FilaBandeja
+      nombre={equipo.nombre}
+      detalle={`${equipo.categoria} · ${equipo.genero}`}
+      previa={ultimo ? vistaPrevia(ultimo, uid) : 'Todavía no hay mensajes'}
+      cuando={cuando ? desde(cuando) : null}
+      noLeidos={resumen?.noLeidos ?? 0}
+      mas={resumen?.desbordado ?? false}
+      onPress={() => router.push(`/chat/${equipo.id}`)}
+    />
   )
 }
 
-const e = StyleSheet.create({
-  marcoSelector: { paddingHorizontal: espacio.lg, paddingTop: espacio.md },
-  lista: { padding: espacio.lg, gap: espacio.sm, flexGrow: 1 },
-  // Encima de la lista vacía, sin transformaciones: ver el comentario de arriba.
-  vacio: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    justifyContent: 'center',
-  },
+/**
+ * La línea que resume el último mensaje: «Nombre: texto».
+ *
+ * Lo propio sale como «Tú», que es lo que deja ver de un golpe si la pelota
+ * está en el tejado de uno o en el del equipo. Solo el nombre de pila: los
+ * apellidos se comen el ancho y no distinguen nada dentro de un equipo.
+ */
+function vistaPrevia(m: Mensaje, uid: string): string {
+  const quien = m.autor === uid ? 'Tú' : m.autorNombre.split(' ')[0]
+  return `${quien}: ${m.texto}`
+}
 
-  fila: { flexDirection: 'row' },
-  filaMia: { justifyContent: 'flex-end' },
-  burbuja: {
-    maxWidth: '82%',
-    backgroundColor: color.blanco,
-    borderRadius: radio.lg,
-    borderTopLeftRadius: 4,
-    paddingHorizontal: espacio.md,
-    paddingVertical: espacio.sm,
-    borderWidth: 1,
-    borderColor: color.linea,
-  },
-  burbujaMia: {
-    backgroundColor: color.azul,
-    borderColor: color.azul,
-    borderTopLeftRadius: radio.lg,
-    borderTopRightRadius: 4,
-  },
-  autor: { fontSize: 11.5, fontWeight: '800', color: color.azul, marginBottom: 2 },
-  texto: { fontSize: 15, color: color.tinta, lineHeight: 21 },
-  textoMio: { color: color.blanco },
-  hora: { fontSize: 10.5, color: color.apagado, marginTop: 3, alignSelf: 'flex-end' },
-  horaMia: { color: '#cfe4f8' },
-
-  barra: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: espacio.sm,
-    paddingHorizontal: espacio.lg,
-    paddingTop: espacio.md,
-    paddingBottom: espacio.md,
-    backgroundColor: color.blanco,
-    borderTopWidth: 1,
-    borderTopColor: color.linea,
-  },
-  entrada: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: color.linea,
-    borderRadius: radio.lg,
-    paddingHorizontal: espacio.md,
-    paddingTop: 11,
-    paddingBottom: 11,
-    fontSize: 16,
-    color: color.tinta,
-    maxHeight: 120,
-    backgroundColor: color.fondo,
-  },
-  enviar: {
-    width: 46,
-    height: 46,
-    borderRadius: radio.pastilla,
-    backgroundColor: color.azul,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  enviarApagado: { backgroundColor: color.linea },
-})
+const cuandoDe = (m: Mensaje | null | undefined): number | null => {
+  const f = aDate(m?.creadoEn)
+  return f ? f.getTime() : null
+}

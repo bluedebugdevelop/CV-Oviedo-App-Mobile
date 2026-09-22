@@ -64,6 +64,13 @@ interface Sesion {
   limpiarExpulsion: () => void
   /** Por qué no llegan las notificaciones del sistema, si no llegan. */
   avisoPush: string | null
+  /**
+   * Vuelve a pedir permiso y a registrar el token de este móvil.
+   *
+   * Para quien dijo que no al diálogo del primer arranque sin querer: sin esto
+   * la única salida era reinstalar la app.
+   */
+  activarPush: () => Promise<boolean>
 }
 
 const Contexto = createContext<Sesion | null>(null)
@@ -74,7 +81,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   const [estado, setEstado] = useState<Estado>(firebaseListo ? 'arrancando' : 'fuera')
   const [cuenta, setCuenta] = useState<User | null>(null)
   const [perfil, setPerfil] = useState<Usuario | null>(null)
-  const [equipos, setEquipos] = useState<Equipo[]>([])
+  const [todosSusEquipos, setTodosSusEquipos] = useState<Equipo[]>([])
   const [equipoElegido, setEquipoElegido] = useState<string | null>(null)
   const [expulsion, setExpulsion] = useState<string | null>(null)
   const [avisoPush, setAvisoPush] = useState<string | null>(null)
@@ -106,7 +113,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       setCuenta(u)
       if (!u) {
         setPerfil(null)
-        setEquipos([])
+        setTodosSusEquipos([])
         setEquipoElegido(null)
         pushHecho.current = false
         setEstado('fuera')
@@ -145,11 +152,46 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     })
   }, [cuenta, expulsar])
 
-  // --- los equipos ---
-  // Se suscribe siempre, también sin perfil: con la lista de ids vacía,
-  // `escucharEquiposPorId` emite [] y devuelve un corte que no hace nada. Así
-  // no hay que vaciar el estado a mano desde el efecto.
-  useEffect(() => escucharEquiposPorId(perfil?.equipos ?? [], setEquipos), [perfil])
+  /* --- los equipos ---
+
+     La dependencia es la LISTA DE IDS en texto, no el perfil entero, y eso no
+     es una micro-optimización: es lo que impide una tormenta.
+
+     El perfil llega de un `onSnapshot`, así que es un objeto nuevo cada vez que
+     cambia CUALQUIER campo suyo — y uno de esos campos es `lecturasChat`, que
+     la app escribe sola cada vez que alguien mira un chat. Con `[perfil]` como
+     dependencia, esa escritura volvía a montar los listeners de TODOS los
+     equipos, que devolvían objetos `Equipo` nuevos, que hacían resuscribirse a
+     todo lo que dependiera de ellos. Con la app abierta en el chat eso era un
+     parpadeo constante y una cascada de lecturas de Firestore.
+
+     Los ids solo cambian cuando el club mete o saca a alguien de un equipo,
+     que es exactamente cuando hay que volver a suscribirse. */
+  const idsEquipos = (perfil?.equipos ?? []).join(',')
+  // Para los efectos que solo necesitan saber SI hay alguien dentro.
+  const hayPerfil = perfil !== null
+
+  useEffect(
+    () => escucharEquiposPorId(idsEquipos ? idsEquipos.split(',') : [], setTodosSusEquipos),
+    [idsEquipos],
+  )
+
+  /* Los equipos ARCHIVADOS no salen de aquí.
+
+     Archivar es lo que se hace al acabar la temporada: el equipo conserva su
+     chat, sus avisos y su horario, pero deja de existir para quien estaba en
+     él. Antes el filtro lo ponía cada consumidor por su cuenta —los contextos
+     de chat, avisos y agenda lo hacían; el selector de equipo y `equipoActivo`
+     no—, y el resultado era que en la pestaña de Equipo seguían apareciendo
+     los de la temporada pasada, vacíos y sin calendario, mezclados con los de
+     esta. Filtrar UNA vez aquí arregla los cuatro sitios a la vez.
+
+     Un equipo archivado no se queda huérfano: sigue en `perfil.equipos` y la
+     administración lo ve entero con `escucharTodosLosEquipos`. */
+  const equipos = useMemo(
+    () => todosSusEquipos.filter((eq) => !eq.archivado),
+    [todosSusEquipos],
+  )
 
   /* --- vigilancia del calendario federado ---
 
@@ -159,12 +201,26 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
 
      Solo los equipos con competición federada: los demás no tienen
      calendario que se pueda mover. */
-  useEffect(() => {
-    if (!perfil) return
+  // `equipos` ya viene sin archivados; aquí solo se filtra por competición.
+  const vigilados = useMemo(
+    () =>
+      equipos
+        .filter((eq) => eq.claveCompeticion)
+        .map((eq) => ({ id: eq.id, nombre: eq.nombre, clave: eq.claveCompeticion! })),
+    [equipos],
+  )
 
-    const vigilados = equipos
-      .filter((eq) => eq.claveCompeticion && !eq.archivado)
-      .map((eq) => ({ id: eq.id, nombre: eq.nombre, clave: eq.claveCompeticion! }))
+  /* La dependencia es una FIRMA en texto de lo que se va a escribir.
+
+     Igual que con los ids de los equipos: `equipos` y `perfil` son objetos
+     nuevos cada vez que llega un snapshot, así que con ellos como dependencia
+     esto reescribía el almacén y volvía a registrar la tarea de fondo en cada
+     refresco del club. Con la firma solo se toca cuando de verdad cambia la
+     lista de equipos vigilados o alguno de sus nombres. */
+  const firmaVigilados = vigilados.map((v) => `${v.id}:${v.clave}`).join('|')
+
+  useEffect(() => {
+    if (!hayPerfil) return
 
     void (async () => {
       await ponerEquiposVigilados(vigilados)
@@ -173,27 +229,37 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       if (vigilados.length > 0) await vigilarCalendario()
       else await dejarDeVigilar()
     })()
-  }, [perfil, equipos])
+    // `vigilados` se deja fuera a propósito: `firmaVigilados` lo resume, y
+    // meterlo devolvería el efecto a dispararse con cada objeto nuevo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hayPerfil, firmaVigilados])
 
   // --- notificaciones ---
+  const registrarPush = useCallback(async (quien: Usuario) => {
+    const { token, motivo } = await registrarParaPush()
+    if (!token) {
+      setAvisoPush(motivo ?? null)
+      return false
+    }
+    setAvisoPush(null)
+    // `arrayUnion` no duplica, así que se puede guardar en cada arranque sin
+    // llenar el perfil de tokens repetidos.
+    if (!quien.tokensPush.includes(token)) {
+      await guardarTokenPush(quien.uid, token).catch(() => {})
+    }
+    return true
+  }, [])
+
   useEffect(() => {
     if (!perfil || pushHecho.current) return
     pushHecho.current = true
+    void registrarPush(perfil)
+  }, [perfil, registrarPush])
 
-    void (async () => {
-      const { token, motivo } = await registrarParaPush()
-      if (!token) {
-        setAvisoPush(motivo ?? null)
-        return
-      }
-      setAvisoPush(null)
-      // `arrayUnion` no duplica, así que se puede guardar en cada arranque sin
-      // llenar el perfil de tokens repetidos.
-      if (!perfil.tokensPush.includes(token)) {
-        await guardarTokenPush(perfil.uid, token).catch(() => {})
-      }
-    })()
-  }, [perfil])
+  const activarPush = useCallback(
+    async () => (perfil ? registrarPush(perfil) : false),
+    [perfil, registrarPush],
+  )
 
   const entrar = useCallback(async (email: string, clave: string) => {
     setExpulsion(null)
@@ -224,8 +290,20 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       expulsion,
       limpiarExpulsion: () => setExpulsion(null),
       avisoPush,
+      activarPush,
     }),
-    [estado, cuenta, perfil, equipos, equipoActivo, entrar, salir, expulsion, avisoPush],
+    [
+      estado,
+      cuenta,
+      perfil,
+      equipos,
+      equipoActivo,
+      entrar,
+      salir,
+      expulsion,
+      avisoPush,
+      activarPush,
+    ],
   )
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>

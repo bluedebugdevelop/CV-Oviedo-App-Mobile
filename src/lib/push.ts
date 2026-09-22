@@ -128,6 +128,22 @@ function idProyecto(): string | null {
   return id
 }
 
+/**
+ * En qué punto está el permiso de notificaciones de este móvil.
+ *
+ * «denegadas» es el caso que importa distinguir: el sistema ya no vuelve a
+ * enseñar el diálogo (iOS a la primera negativa, Android a la segunda), así que
+ * pedirlo otra vez no hace nada y lo único que sirve es mandar a los ajustes.
+ */
+export type EstadoPermisoPush = 'activadas' | 'sin-preguntar' | 'denegadas' | 'no-disponible'
+
+export async function estadoPermisoPush(): Promise<EstadoPermisoPush> {
+  if (!Device.isDevice) return 'no-disponible'
+  const { status, canAskAgain } = await Notifications.getPermissionsAsync()
+  if (status === 'granted') return 'activadas'
+  return canAskAgain ? 'sin-preguntar' : 'denegadas'
+}
+
 export interface ResultadoRegistro {
   token: string | null
   motivo?: string
@@ -247,5 +263,37 @@ export async function ponerContador(n: number) {
     await Notifications.setBadgeCountAsync(Math.max(0, n))
   } catch {
     /* no todos los lanzadores lo admiten */
+  }
+}
+
+// --- adónde lleva tocar una notificación ---------------------------------
+
+/**
+ * La ruta de la app que corresponde a una notificación.
+ *
+ * Se devuelve la ruta en vez de navegar aquí mismo para que este módulo siga
+ * sin depender del router: se carga al arrancar el proceso, también cuando el
+ * sistema lo levanta en segundo plano para una tarea, y ahí no hay navegación
+ * montada todavía. Quien navega es la raíz (`app/_layout.tsx`).
+ *
+ * `null` = no hay sitio mejor al que llevar; se queda donde esté.
+ */
+export function rutaDeNotificacion(datos: unknown): string | null {
+  const d = (datos ?? {}) as Record<string, unknown>
+  const equipoId = typeof d.equipoId === 'string' && d.equipoId ? d.equipoId : null
+
+  switch (d.tipo) {
+    case 'chat':
+      return equipoId ? `/chat/${equipoId}` : '/chat'
+    case 'aviso':
+      return equipoId ? `/avisos/${equipoId}` : '/avisos'
+    // Un cambio de horario se ve en la pestaña del equipo, que es donde está
+    // el horario; no hay pantalla de «el horario cambió».
+    case 'horario':
+      return '/equipo'
+    case 'noticia':
+      return '/'
+    default:
+      return null
   }
 }

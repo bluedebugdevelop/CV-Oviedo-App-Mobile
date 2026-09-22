@@ -1,0 +1,163 @@
+{
+  "_comentario": [
+    "Los equipos del club y su horario de entrenamiento, tal y como los publica",
+    "el club al empezar la temporada (el cartel de HORARIOS DE ENTRENAMIENTO).",
+    "",
+    "Esto NO es la fuente de verdad: lo es Firestore. Esto es la SEMILLA, lo que",
+    "se usa una vez por temporada para no teclear trece equipos y treinta y tres",
+    "entrenamientos a mano. A partir de ahí manda lo que haya en la base de datos,",
+    "que es lo que se puede cambiar sin publicar una versión nueva.",
+    "",
+    "Se siembra con `npm run alta:equipos` (script) o desde Administración >",
+    "Equipos > «Equipos del club» (app). Las dos leen ESTE fichero y las dos son",
+    "idempotentes: solo crean lo que falta.",
+    "",
+    "`dia` va como Date.getDay(): 0 domingo, 1 lunes ... 6 sábado.",
+    "`claveCompeticion` enlaza con /api/competicion de la web del club. Solo la",
+    "tienen los dos equipos nacionales: la web no publica el calendario de las",
+    "categorías de base."
+  ],
+  "temporada": "2026/27",
+  "sede": "Polideportivo José Manuel Fuente (Colloto)",
+  "equipos": [
+    {
+      "nombre": "Benjamín / Alevín",
+      "categoria": "Alevín",
+      "genero": "Mixto",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 1, "inicio": "18:00", "fin": "19:15" },
+        { "dia": 3, "inicio": "18:00", "fin": "19:15" }
+      ]
+    },
+    {
+      "nombre": "Infantil Masculino",
+      "categoria": "Infantil",
+      "genero": "Masculino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 1, "inicio": "18:00", "fin": "19:15" },
+        { "dia": 3, "inicio": "18:00", "fin": "19:15" },
+        { "dia": 4, "inicio": "18:00", "fin": "19:15" }
+      ]
+    },
+    {
+      "nombre": "Infantil Femenino A",
+      "categoria": "Infantil",
+      "genero": "Femenino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 2, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 4, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 5, "inicio": "17:30", "fin": "19:00" }
+      ]
+    },
+    {
+      "nombre": "Infantil Femenino B",
+      "categoria": "Infantil",
+      "genero": "Femenino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 2, "inicio": "18:00", "fin": "19:15" },
+        { "dia": 5, "inicio": "17:30", "fin": "19:00" }
+      ]
+    },
+    {
+      "nombre": "Cadete Masculino",
+      "categoria": "Cadete",
+      "genero": "Masculino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 2, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 3, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 5, "inicio": "19:00", "fin": "20:30" }
+      ]
+    },
+    {
+      "nombre": "Cadete Femenino A",
+      "categoria": "Cadete",
+      "genero": "Femenino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 2, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 4, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 5, "inicio": "17:30", "fin": "19:00" }
+      ]
+    },
+    {
+      "nombre": "Cadete Femenino B",
+      "categoria": "Cadete",
+      "genero": "Femenino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 1, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 5, "inicio": "19:00", "fin": "20:30" }
+      ]
+    },
+    {
+      "nombre": "Juvenil Masculino",
+      "categoria": "Juvenil",
+      "genero": "Masculino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 1, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 3, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 4, "inicio": "19:15", "fin": "20:30" }
+      ]
+    },
+    {
+      "nombre": "Júnior Masculino",
+      "categoria": "Junior",
+      "genero": "Masculino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 1, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 3, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 4, "inicio": "19:15", "fin": "20:30" }
+      ]
+    },
+    {
+      "nombre": "Juvenil Femenino A",
+      "categoria": "Juvenil",
+      "genero": "Femenino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 1, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 3, "inicio": "19:15", "fin": "20:30" },
+        { "dia": 5, "inicio": "19:00", "fin": "20:30" }
+      ]
+    },
+    {
+      "nombre": "Juvenil Femenino B",
+      "categoria": "Juvenil",
+      "genero": "Femenino",
+      "claveCompeticion": null,
+      "entrenamientos": [
+        { "dia": 2, "inicio": "18:00", "fin": "19:15" },
+        { "dia": 4, "inicio": "18:00", "fin": "19:15" }
+      ]
+    },
+    {
+      "nombre": "Primera Nacional Femenina",
+      "categoria": "Competición nacional",
+      "genero": "Femenino",
+      "claveCompeticion": "primera-division-femenina-primera-division-femenina-rfevb",
+      "entrenamientos": [
+        { "dia": 1, "inicio": "20:30", "fin": "22:30" },
+        { "dia": 3, "inicio": "20:30", "fin": "22:30" },
+        { "dia": 5, "inicio": "20:30", "fin": "22:30" }
+      ]
+    },
+    {
+      "nombre": "Superliga 2 Masculina",
+      "categoria": "Competición nacional",
+      "genero": "Masculino",
+      "claveCompeticion": "superliga-masculina-2-superliga-masculina-2-rfevb",
+      "entrenamientos": [
+        { "dia": 1, "inicio": "20:30", "fin": "22:30" },
+        { "dia": 3, "inicio": "20:30", "fin": "22:30" },
+        { "dia": 4, "inicio": "20:30", "fin": "22:30" }
+      ]
+    }
+  ]
+}
